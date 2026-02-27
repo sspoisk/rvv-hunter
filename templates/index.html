@@ -1,0 +1,3625 @@
+<!DOCTYPE html>
+<html lang="ru" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="google" content="notranslate">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self';">
+<title>RVV Hunter v6.0</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js"></script>
+<script>
+// Проверка загрузки Chart.js
+window.addEventListener('load', function() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js failed to load from primary CDN');
+        // Fallback to CDN2
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+        document.head.appendChild(script);
+    } else {
+        console.log('Chart.js loaded successfully, version:', Chart.version);
+    }
+});
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+--bg: #0a0e17; --bg2: #111827; --bg3: #1a1f2e; --bg4: #0d1117;
+--text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+--green: #00ff88; --cyan: #00d4ff; --red: #ef4444; --orange: #f59e0b; --purple: #a855f7; --blue: #3b82f6;
+--border: #2d3748;
+}
+body { font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
+.container { max-width: 1800px; margin: 0 auto; padding: 12px; }
+/* HEADER */
+.header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-wrap: nowrap; gap: 10px; min-height: 60px; }
+.logo { font-family: 'Orbitron', sans-serif; font-size: 1.4rem; font-weight: 700; background: linear-gradient(90deg, var(--green), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.logo-sub { font-size: 0.65rem; color: var(--text3); }
+.header-controls { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; justify-content: flex-end; }
+.header-time { font-size: 0.75rem; color: var(--cyan); padding: 5px 10px; background: var(--bg4); border-radius: 4px; }
+/* HEALTH INDICATOR */
+.health-indicator { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 16px; font-size: 0.7rem; font-weight: 600; cursor: pointer; position: relative; }
+.health-indicator.healthy { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+.health-indicator.warning { background: rgba(245,158,11,0.15); color: var(--orange); border: 1px solid rgba(245,158,11,0.3); }
+.health-indicator.problem { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.health-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: 0.5; } }
+.health-tooltip { display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 250px; z-index: 100; font-size: 0.7rem; }
+.health-indicator:hover .health-tooltip { display: block; }
+.health-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.health-row:last-child { border-bottom: none; }
+.health-status-ok { color: var(--green); }
+.health-status-error { color: var(--red); }
+.health-status-warning { color: var(--orange); }
+/* BADGES */
+.badge { padding: 5px 12px; border-radius: 16px; font-size: 0.7rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+.badge-green { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+.badge-orange { background: rgba(245,158,11,0.15); color: var(--orange); border: 1px solid rgba(245,158,11,0.3); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.badge-purple { background: rgba(168,85,247,0.15); color: var(--purple); border: 1px solid rgba(168,85,247,0.3); }
+.badge-cyan { background: rgba(0,212,255,0.15); color: var(--cyan); border: 1px solid rgba(0,212,255,0.3); }
+.badge-blue { background: rgba(59,130,246,0.15); color: var(--blue); border: 1px solid rgba(59,130,246,0.3); }
+/* BUTTONS */
+.btn { padding: 6px 14px; border: none; border-radius: 5px; font-family: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.btn-primary { background: linear-gradient(135deg, var(--green), var(--cyan)); color: var(--bg); }
+.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: rgba(239,68,68,0.2); color: var(--red); border: 1px solid var(--red); }
+.btn-warning { background: rgba(245,158,11,0.2); color: var(--orange); border: 1px solid var(--orange); }
+.btn-success { background: rgba(0,255,136,0.2); color: var(--green); border: 1px solid var(--green); }
+.btn-sm { padding: 4px 8px; font-size: 0.65rem; }
+.btn:hover { opacity: 0.8; transform: translateY(-1px); }
+/* TABS */
+.tabs { display: flex; gap: 4px; padding: 8px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab { padding: 8px 16px; background: transparent; border: none; color: var(--text3); font-family: inherit; font-size: 0.8rem; cursor: pointer; border-radius: 6px 6px 0 0; position: relative; white-space: nowrap; }
+.tab:hover { color: var(--text); background: var(--bg3); }
+.tab.active { color: var(--cyan); background: var(--bg3); }
+.tab .tab-badge { position: absolute; top: 2px; right: 2px; background: var(--red); color: white; font-size: 0.55rem; padding: 2px 5px; border-radius: 8px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+/* STATS */
+.stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 12px 0; }
+@media (max-width: 1000px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+.stat { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px; height: 72px; }
+.stat-label { font-size: 0.65rem; color: var(--text3); text-transform: uppercase; margin-bottom: 6px; }
+.stat-value { font-family: 'Orbitron', sans-serif; font-size: 1.15rem; font-weight: 700; white-space: nowrap; }
+.stat-value.pos { color: var(--green); }
+.stat-value.neg { color: var(--red); }
+/* MAIN GRID */
+.main { display: grid; grid-template-columns: 1fr 420px; gap: 12px; }
+@media (max-width: 1100px) { .main { grid-template-columns: 1fr; } }
+/* CARDS */
+.card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg2); border-bottom: 1px solid var(--border); min-height: 44px; }
+.card-title { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 700; color: var(--cyan); }
+.card-body { padding: 14px; }
+/* CHART */
+.chart-wrap { height: 400px; background: var(--bg4); position: relative; }
+.chart-controls select { padding: 5px 8px; background: var(--bg4); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.7rem; }
+.pair-buttons { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 14px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.pair-btn { padding: 4px 10px; background: var(--bg4); border: 1px solid var(--border); border-radius: 4px; color: var(--text2); font-size: 0.7rem; cursor: pointer; }
+.pair-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.pair-btn.active { background: var(--cyan); color: var(--bg); border-color: var(--cyan); }
+.pair-btn.has-position { border-color: var(--red); color: var(--red); }
+/* TABLE */
+.table-wrap { max-height: 240px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { background: var(--bg2); color: var(--text3); font-size: 0.65rem; text-transform: uppercase; position: sticky; top: 0; }
+.pnl-pos { color: var(--green); }
+.pnl-neg { color: var(--red); }
+.side-short { background: var(--red); color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.6rem; font-weight: 600; }
+.side-long { background: var(--green); color: var(--bg); padding: 2px 6px; border-radius: 3px; font-size: 0.6rem; font-weight: 600; }
+/* POSITION CARD - добавлено из первого файла */
+.position-card { background: var(--bg3); border-radius: 8px; padding: 15px; border: 1px solid var(--border); transition: all 0.3s ease; position: relative; overflow: hidden; margin-bottom: 12px; }
+.position-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4); border-color: var(--cyan); }
+.position-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--red); }
+.position-card.long::before { background: var(--green); }
+.position-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.position-symbol { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.position-id { color: var(--text3); font-size: 0.8rem; background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 4px; }
+.position-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+.stat-item { background: rgba(255, 255, 255, 0.05); padding: 8px; border-radius: 6px; text-align: center; }
+.stat-item .label { font-size: 0.7rem; color: var(--text3); margin-bottom: 4px; }
+.stat-item .value { font-size: 0.95rem; font-weight: 600; }
+.profit-positive { color: var(--green); }
+.profit-negative { color: var(--red); }
+.position-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.level-item { background: rgba(255, 255, 255, 0.05); padding: 6px; border-radius: 5px; text-align: center; font-size: 0.75rem; }
+.level-item .label { display: block; color: var(--text3); font-size: 0.65rem; margin-bottom: 2px; }
+.level-item.sl { color: var(--red); }
+.level-item.tp { color: var(--green); }
+.level-item.entry { color: var(--orange); }
+.position-reason { font-size: 0.75rem; color: var(--text3); margin-top: 10px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; line-height: 1.4; }
+.position-footer { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text3); }
+/* CONFIDENCE BAR - добавлено из первого файла */
+.confidence-bar { height: 5px; background: var(--border); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.confidence-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); border-radius: 3px; transition: width 0.3s ease; }
+/* LOG PANEL */
+.log-panel { height: 580px; display: flex; flex-direction: column; }
+.log-list { flex: 1; overflow-y: auto; padding: 10px; background: var(--bg4); font-size: 0.75rem; line-height: 1.5; }
+.log-entry { padding: 10px; margin-bottom: 8px; border-radius: 6px; background: var(--bg3); border-left: 3px solid var(--border); }
+.log-entry.scan { border-left-color: var(--cyan); }
+.log-entry.analysis { border-left-color: var(--purple); }
+.log-entry.signal { border-left-color: var(--green); }
+.log-entry.trade_open { border-left-color: var(--red); background: rgba(239,68,68,0.1); }
+.log-entry.trade_close { border-left-color: var(--orange); }
+.log-entry.error { border-left-color: var(--red); background: rgba(239,68,68,0.15); }
+.log-entry.trailing { border-left-color: var(--cyan); background: rgba(0,212,255,0.1); }
+.log-time { color: var(--text3); font-size: 0.65rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+.btn-copy { padding: 2px 6px; font-size: 0.6rem; background: var(--bg4); border: 1px solid var(--border); color: var(--text2); cursor: pointer; border-radius: 3px; transition: all 0.2s; }
+.btn-copy:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.1); }
+.log-msg { white-space: pre-wrap; word-break: break-word; }
+/* ANALYTICS */
+.analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }
+.stat-bar { height: 24px; background: var(--bg4); border-radius: 4px; overflow: hidden; margin: 4px 0; }
+.stat-bar-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--cyan)); transition: width 0.3s; }
+.stat-bar-fill.low { background: linear-gradient(90deg, var(--red), var(--orange)); }
+/* POST-MORTEM */
+.post-mortem-card { background: var(--bg4); border: 1px solid var(--orange); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+.post-mortem-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.post-mortem-title { color: var(--orange); font-weight: 600; }
+.post-mortem-loss { color: var(--red); font-size: 1.1rem; font-weight: 700; }
+.post-mortem-analysis { font-size: 0.75rem; color: var(--text2); white-space: pre-wrap; margin-bottom: 10px; max-height: 200px; overflow-y: auto; }
+.post-mortem-actions { display: flex; gap: 8px; }
+/* MODAL */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+.modal-bg.active { display: flex; }
+.modal { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.modal-title { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: var(--cyan); }
+.modal-close { background: none; border: none; color: var(--text3); font-size: 1.3rem; cursor: pointer; }
+.modal-body { padding: 18px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--border); }
+/* FORM */
+.form-group { margin-bottom: 14px; }
+.form-label { display: block; font-size: 0.75rem; color: var(--text2); margin-bottom: 5px; }
+.form-input { width: 100%; padding: 9px 11px; background: var(--bg4); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: inherit; font-size: 0.85rem; }
+.form-input:focus { outline: none; border-color: var(--cyan); }
+.form-input::placeholder { color: var(--text3); opacity: 1; }
+input[type="password"].form-input { background: var(--bg4); color: var(--text); -webkit-text-fill-color: var(--text); }
+input[type="password"].form-input::placeholder { color: var(--text3); -webkit-text-fill-color: var(--text3); }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px var(--bg4) inset !important;
+    -webkit-text-fill-color: var(--text) !important;
+    background-color: var(--bg4) !important;
+    caret-color: var(--text);
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8rem; }
+.form-check input { width: 16px; height: 16px; accent-color: var(--green); }
+.form-hint { font-size: 0.6rem; color: var(--text3); margin-top: 4px; }
+.form-section { font-size: 0.7rem; color: var(--cyan); margin: 16px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+/* TOAST */
+.toast-box { position: fixed; top: 16px; right: 16px; z-index: 9999; }
+.toast { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; min-width: 220px; animation: slideIn 0.3s; }
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--cyan); }
+.toast.warning { border-left: 3px solid var(--orange); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } }
+/* CONTEXT MENU */
+.context-menu { display: none; position: fixed; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 4px 0; z-index: 1001; min-width: 180px; }
+.context-menu.active { display: block; }
+.context-menu-item { padding: 8px 14px; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.context-menu-item:hover { background: var(--bg4); color: var(--cyan); }
+.context-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg4); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+/* MODE SWITCH */
+.mode-switch { display: flex; gap: 4px; padding: 3px; background: var(--bg4); border-radius: 6px; }
+.mode-btn { padding: 4px 12px; border: none; background: transparent; color: var(--text3); font-size: 0.7rem; cursor: pointer; border-radius: 4px; font-family: inherit; }
+.mode-btn.active { background: var(--cyan); color: var(--bg); }
+.mode-btn.live { background: var(--red); color: white; }
+/* BTC TREND - добавлено из первого файла */
+.btc-trend { padding: 6px 12px; border-radius: 6px; font-size: 0.7rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.btc-bullish { background-color: rgba(34, 197, 94, 0.15); color: var(--green); border: 1px solid var(--green); }
+.btc-bearish { background-color: rgba(239, 68, 68, 0.15); color: var(--red); border: 1px solid var(--red); }
+.btc-neutral { background-color: rgba(100, 116, 139, 0.15); color: var(--text3); border: 1px solid var(--text3); }
+/* TRADE MODE - добавлено из первого файла */
+.trade-mode { padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+.trade-mode.paper { background: rgba(245, 158, 11, 0.2); color: var(--orange); border: 1px solid var(--orange); }
+.trade-mode.live { background: rgba(16, 185, 129, 0.2); color: var(--green); border: 1px solid var(--green); }
+/* AI STATS - добавлено из первого файла */
+.ai-stats { margin-top: 15px; }
+.ai-provider { display: flex; justify-content: space-between; padding: 8px 10px; margin: 4px 0; border-radius: 6px; background: rgba(255, 255, 255, 0.05); font-size: 0.75rem; }
+.ai-provider.deepseek { border-left: 3px solid var(--cyan); }
+.ai-provider.groq { border-left: 3px solid var(--purple); }
+.ai-provider.mock { border-left: 3px solid var(--orange); }
+.ai-stats-value { font-weight: 600; }
+/* DIRECTION STATS - добавлено из первого файла */
+.direction-stats { display: flex; gap: 12px; margin-top: 15px; }
+.direction-stat { flex: 1; padding: 10px; border-radius: 6px; text-align: center; }
+.direction-stat.short { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red); }
+.direction-stat.long { background: rgba(0, 255, 136, 0.1); border: 1px solid var(--green); }
+.direction-stat .value { font-size: 1.3rem; font-weight: 700; margin: 5px 0; }
+.direction-stat .label { font-size: 0.8rem; color: var(--text3); }
+/* LOADING - добавлено из первого файла */
+.loading { text-align: center; padding: 30px; color: var(--text3); font-size: 0.9rem; }
+/* STATS GRID - добавлено из первого файла */
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 15px; }
+.stat-box { background: var(--bg3); padding: 12px; border-radius: 6px; border: 1px solid var(--border); text-align: center; }
+.stat-box .value { font-size: 1.4rem; font-weight: 700; margin: 5px 0; }
+.stat-box .label { font-size: 0.8rem; color: var(--text3); }
+.stat-box.win-rate { border-left: 4px solid var(--green); }
+.stat-box.profit { border-left: 4px solid var(--green); }
+.stat-box.loss { border-left: 4px solid var(--red); }
+.stat-box.balance { border-left: 4px solid var(--cyan); }
+/* POSITIONS GRID - добавлено из первого файла */
+.positions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
+/* EMPTY STATE */
+.empty { text-align: center; padding: 20px; color: var(--text3); font-size: 0.8rem; }
+/* AI SUB TABS */
+.ai-subtab { display: none; }
+.ai-subtab.active { display: block; }
+</style>
+</head>
+<body>
+<div class="toast-box" id="toasts"></div>
+<!-- CONTEXT MENU -->
+<div class="context-menu" id="contextMenu">
+<div class="context-menu-item" onclick="contextShowChart()">📈 Показать на графике</div>
+<div class="context-menu-item" onclick="contextAddBlacklist()">⚫ Добавить в ЧС</div>
+<div class="context-menu-divider"></div>
+<div class="context-menu-item" onclick="contextEditSL()">🎯 Изменить SL</div>
+<div class="context-menu-item" onclick="contextEditTP()">💰 Изменить TP</div>
+<div class="context-menu-divider"></div>
+<div class="context-menu-item" onclick="contextClose()">❌ Закрыть позицию</div>
+</div>
+<!-- HISTORY CONTEXT MENU -->
+<div class="context-menu" id="historyContextMenu">
+<div class="context-menu-item" onclick="historyShowChart()">📈 Показать на графике</div>
+<div class="context-menu-item" onclick="historyAddBlacklist()">⚫ Добавить в ЧС</div>
+</div>
+<header class="header">
+<div>
+<div class="logo">RVV HUNTER</div>
+<div class="logo-sub">AI Trading Bot v5.2</div>
+</div>
+<div class="header-controls">
+<span class="header-time" id="headerTime">--:--:-- GMT+2</span>
+<!-- Work Hours Indicator -->
+<div class="health-indicator healthy" id="workHoursIndicator" title="Рабочие часы">
+<span>⏰</span>
+<span id="workHoursText">24/7</span>
+</div>
+<!-- Health Indicator -->
+<div class="health-indicator healthy" id="healthIndicator">
+<span class="health-dot"></span>
+<span id="healthText">HEALTHY</span>
+<div class="health-tooltip" id="healthTooltip">
+<div class="health-row"><span>Binance:</span><span class="health-status-ok" id="hBinance">OK</span></div>
+<div class="health-row"><span>DeepSeek:</span><span class="health-status-ok" id="hDeepseek">OK</span></div>
+<div class="health-row"><span>Groq:</span><span id="hGroq">-</span></div>
+<div class="health-row"><span>Telegram:</span><span id="hTelegram">-</span></div>
+<div class="health-row"><span>Daily PnL:</span><span id="hDailyPnl">$0</span></div>
+</div>
+</div>
+<!-- Mode Switch -->
+<div class="mode-switch">
+<button class="mode-btn active" id="modePaper" onclick="setMode('PAPER')">📝 Paper</button>
+<button class="mode-btn" id="modeLive" onclick="setMode('LIVE')">💰 Live</button>
+</div>
+<!-- Smart Agent Chat Button -->
+<button class="btn" onclick="openAgentChat()" style="background: var(--cyan); color: #000; padding: 6px 12px; font-size: 0.8rem;" title="Чат с AI Агентом">🤖 Agent</button>
+<!-- Header Stats - добавлено из первого файла -->
+<div class="header-stats" style="display: flex; gap: 10px; align-items: center;">
+<div class="stat-card" style="background: var(--bg3); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); min-width: 100px; text-align: center;">
+<div class="stat-value" id="balance-value" style="font-size: 1.1rem; font-weight: 700; margin: 3px 0;">$0.00</div>
+<div class="stat-label" style="font-size: 0.7rem; color: var(--text3);">Баланс</div>
+</div>
+<div class="stat-card" style="background: var(--bg3); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); min-width: 100px; text-align: center;">
+<div class="stat-value" id="win-rate-value" style="font-size: 1.1rem; font-weight: 700; margin: 3px 0;">0%</div>
+<div class="stat-label" style="font-size: 0.7rem; color: var(--text3);">Win Rate</div>
+</div>
+<div class="stat-card" style="background: var(--bg3); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); min-width: 100px; text-align: center;">
+<div class="stat-value" id="open-positions-value" style="font-size: 1.1rem; font-weight: 700; margin: 3px 0;">0</div>
+<div class="stat-label" style="font-size: 0.7rem; color: var(--text3);">Открытых</div>
+</div>
+<div class="stat-card" style="background: var(--bg3); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); min-width: 80px; text-align: center;">
+<div class="stat-value" id="daily-pnl-value" style="font-size: 1.1rem; font-weight: 700; margin: 3px 0;">$0</div>
+<div class="stat-label" style="font-size: 0.7rem; color: var(--text3);">За день</div>
+</div>
+<div class="btc-trend btc-neutral" id="btc-trend" style="margin: 0;">
+₿ BTC: Нейтральный
+</div>
+<div class="trade-mode paper" id="trade-mode">
+PAPER TRADING
+</div>
+</div>
+<span class="badge badge-purple" id="aiBadge">AI: MOCK</span>
+<span class="badge badge-cyan" id="blacklistBadge">⚫ ЧС: 0</span>
+<span class="badge" id="cooldownBadge" onclick="showCooldowns()" style="background: var(--bg3); color: var(--text2); cursor: pointer; border: 1px solid var(--border);" title="Кликните для подробностей">🛡️ Блок: 0</span>
+<button class="btn btn-success" id="btnStart" onclick="startScanner()" style="display:none;">▶ Старт</button>
+<button class="btn btn-warning" id="btnPause" onclick="togglePause()">⏸ Пауза</button>
+<button class="btn btn-primary" onclick="forceScan()">🔍 Скан</button>
+<button class="btn btn-secondary" onclick="openManual()">✚ Вручную</button>
+<button class="btn btn-secondary" onclick="openSettings()">⚙ Настройки</button>
+<button class="btn btn-danger" onclick="openReset()">↺ Сброс</button>
+</div>
+</header>
+<!-- TABS -->
+<div class="tabs">
+<button class="tab active" onclick="showTab('trading')">📈 Торговля</button>
+<button class="tab" onclick="showTab('positions')" id="tabPositions">💼 Позиции</button>
+<button class="tab" onclick="showTab('analytics')" id="tabAnalytics">📊 Аналитика</button>
+<button class="tab" onclick="showTab('postmortem')" id="tabPostMortem">🎛️ Фильтры</button>
+<button class="tab" onclick="showTab('blacklist')" id="tabBlacklist">⚫ ЧС</button>
+<button class="tab" onclick="showTab('ai')">🤖 AI</button>
+</div>
+<!-- TRADING TAB -->
+<div class="tab-content active" id="tab-trading">
+<div class="container">
+<div class="stats">
+<div class="stat"><div class="stat-label">💰 Баланс</div><div class="stat-value" id="sEquity">$10,000</div></div>
+<div class="stat"><div class="stat-label">📊 Общий PnL <button onclick="fixPnl()" style="font-size:10px;padding:2px 6px;margin-left:5px;" title="Пересчитать PnL из БД">🔄</button></div><div class="stat-value" id="sTotalPnl">$0</div></div>
+<div class="stat"><div class="stat-label">📈 За день</div><div class="stat-value" id="sDailyPnl">$0</div></div>
+<div class="stat"><div class="stat-label">📉 Нереализ.</div><div class="stat-value" id="sUnreal">$0</div></div>
+<div class="stat"><div class="stat-label">🎯 Win Rate</div><div class="stat-value" id="sWinRate">0%</div></div>
+<div class="stat"><div class="stat-label">📋 Позиции</div><div class="stat-value" id="sPositions">0/5</div></div>
+</div>
+<div class="main">
+<div>
+<div class="card">
+<div class="card-header">
+<span class="card-title">📈 ГРАФИК</span>
+<div class="chart-controls">
+<select id="chartTf" onchange="loadChart()">
+<option value="5m">5m</option>
+<option value="15m" selected>15m</option>
+<option value="1h">1h</option>
+<option value="4h">4h</option>
+</select>
+</div>
+</div>
+<div class="pair-buttons" id="pairButtons">
+<button class="pair-btn active" data-symbol="BTC/USDT">BTC</button>
+<button class="pair-btn" data-symbol="ETH/USDT">ETH</button>
+<button class="pair-btn" data-symbol="SOL/USDT">SOL</button>
+</div>
+<div class="chart-wrap" id="chart"></div>
+</div>
+
+<!-- CRYPTO AGENT PANEL -->
+<div class="card" id="agentPanel" style="display: none; border-color: var(--cyan);">
+<div class="card-header" style="background: linear-gradient(90deg, var(--bg2), rgba(0, 200, 255, 0.2));">
+<span class="card-title" style="color: var(--cyan);">🤖 CRYPTO AGENT</span>
+<div style="display: flex; gap: 8px; align-items: center;">
+<span id="agentWorkMode" style="font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; background: var(--green); color: #000;">AUTO</span>
+<span id="agentStatus" style="font-size: 0.65rem; padding: 2px 8px; border-radius: 4px; background: var(--bg4);">ВЫКЛ</span>
+<button class="btn btn-sm" style="padding: 2px 8px; font-size: 0.65rem;" onclick="toggleAgent()">⚡</button>
+</div>
+</div>
+<div class="card-body" style="padding: 10px;">
+<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; text-align: center;">
+<div>
+<div style="font-size: 0.5rem; color: var(--text3);">РЫНОК</div>
+<div id="agentMode" style="font-size: 0.8rem; font-weight: bold; color: var(--green);">-</div>
+</div>
+<div>
+<div style="font-size: 0.5rem; color: var(--text3);">BTC</div>
+<div id="agentBtc" style="font-size: 0.8rem; font-weight: bold;">-</div>
+</div>
+<div>
+<div style="font-size: 0.5rem; color: var(--text3);">ПОЗИЦИЙ</div>
+<div id="agentPositions" style="font-size: 0.8rem; font-weight: bold;">0</div>
+</div>
+<div>
+<div style="font-size: 0.5rem; color: var(--text3);">ЗАКРЫТИЙ</div>
+<div id="agentCloses" style="font-size: 0.8rem; font-weight: bold; color: var(--cyan);">0</div>
+</div>
+<div>
+<div style="font-size: 0.5rem; color: var(--text3);">HOLD</div>
+<div id="agentHolds" style="font-size: 0.8rem; font-weight: bold; color: var(--yellow);">0</div>
+</div>
+<div>
+<div style="font-size: 0.5rem; color: var(--text3);">СОХРАНЕНО</div>
+<div id="agentSaved" style="font-size: 0.8rem; font-weight: bold; color: var(--green);">$0</div>
+</div>
+</div>
+<div id="agentReasoning" style="margin-top: 8px; font-size: 0.65rem; color: var(--text3); padding: 8px; background: var(--bg4); border-radius: 4px; display: none; max-height: 60px; overflow-y: auto;"></div>
+<div style="display: flex; gap: 4px; margin-top: 10px; justify-content: center; flex-wrap: wrap;">
+<button class="btn btn-sm btn-secondary" onclick="forceAgentAnalysis()">🔄 Анализ</button>
+<button class="btn btn-sm btn-secondary" onclick="forceCheckPositions()">🔍 Проверить</button>
+<button class="btn btn-sm btn-secondary" onclick="showAgentMemory()">🧠 Память</button>
+<button class="btn btn-sm btn-secondary" onclick="showAgentDecisions()">📋 Решения</button>
+<button class="btn btn-sm btn-secondary" onclick="showAgentLogs()">📜 Логи</button>
+<button class="btn btn-sm btn-secondary" onclick="openAgentChat()">💬 Чат</button>
+<button class="btn btn-sm" style="background:var(--cyan);color:#000;" onclick="showAgentHelp()">📚 Справка</button>
+</div>
+</div>
+</div>
+
+<div class="card">
+<span style="font-size:0.6rem;color:var(--text3)">ПКМ для опций</span>
+</div>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Пара</th><th>Напр.</th><th>Вход</th><th>Текущая</th><th>PnL</th><th>SL/TP</th><th></th></tr></thead>
+<tbody id="posTable"><tr><td colspan="7" class="empty">Нет позиций</td></tr></tbody>
+</table>
+</div>
+</div>
+<div class="card">
+<div class="card-header">
+<span class="card-title">📜 ИСТОРИЯ СДЕЛОК</span>
+<select id="historyLimit" onchange="updatePositions()" style="padding:3px 6px;background:var(--bg4);border:1px solid var(--border);color:var(--text);font-size:0.65rem;border-radius:4px;">
+<option value="50">50</option>
+<option value="100">100</option>
+<option value="200">200</option>
+<option value="500">500</option>
+<option value="9999">Все</option>
+</select>
+</div>
+<div class="table-wrap" style="max-height: 400px;">
+<table>
+<thead><tr><th>Пара</th><th>Напр.</th><th>PnL</th><th>Причина</th><th>Закрыт</th></tr></thead>
+<tbody id="histTable"><tr><td colspan="5" class="empty">Нет истории</td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="card log-panel">
+<div class="card-header">
+<span class="card-title">🤖 AI АНАЛИЗ</span>
+<label class="form-check" style="font-size: 0.7rem;"><input type="checkbox" id="soundOn" checked> 🔊</label>
+<button class="btn btn-sm btn-secondary" onclick="clearLogs()">🗑️ Очистить</button>
+</div>
+<div class="log-list" id="logList"><div class="empty">Ожидание...</div></div>
+</div>
+</div>
+</div>
+<!-- POSITIONS TAB - добавлено из первого файла -->
+<div class="tab-content" id="tab-positions">
+<div class="container">
+<div class="card">
+<div class="card-header">
+<span class="card-title">💼 ТЕКУЩИЕ ПОЗИЦИИ</span>
+<div style="display: flex; gap: 8px;">
+<select class="form-input" id="symbol-selector" style="width: 150px; padding: 6px 8px; font-size: 0.8rem;">
+<option value="BTC/USDT">BTC/USDT</option>
+<option value="ETH/USDT">ETH/USDT</option>
+<option value="SOL/USDT">SOL/USDT</option>
+</select>
+<button class="btn btn-sm btn-primary" onclick="refreshData()">🔄 Обновить</button>
+</div>
+</div>
+<div class="card-body">
+<div class="positions-grid" id="positions-grid">
+<div class="loading">Загрузка позиций...</div>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-header">
+<span class="card-title">📊 СТАТИСТИКА AI</span>
+</div>
+<div class="card-body">
+<div class="stats-grid">
+<div class="stat-box win-rate">
+<div class="value" id="ai-win-rate">0%</div>
+<div class="label">AI Win Rate</div>
+</div>
+<div class="stat-box balance">
+<div class="value" id="total-pnl">+$0.00</div>
+<div class="label">Общий PnL</div>
+</div>
+<div class="stat-box profit">
+<div class="value" id="avg-profit">$0.00</div>
+<div class="label">Средний профит</div>
+</div>
+<div class="stat-box loss">
+<div class="value" id="avg-loss">$0.00</div>
+<div class="label">Средний убыток</div>
+</div>
+</div>
+<div class="direction-stats">
+<div class="direction-stat short">
+<div class="value" id="short-count">0</div>
+<div class="label">SHORT сделок</div>
+</div>
+<div class="direction-stat long">
+<div class="value" id="long-count">0</div>
+<div class="label">LONG сделок</div>
+</div>
+</div>
+<div class="ai-stats">
+<div class="ai-provider deepseek">
+<span>DeepSeek:</span>
+<span class="ai-stats-value" id="deepseek-stats">0/0 (0%)</span>
+</div>
+<div class="ai-provider groq">
+<span>Groq:</span>
+<span class="ai-stats-value" id="groq-stats">0/0 (0%)</span>
+</div>
+<div class="ai-provider mock">
+<span>Mock:</span>
+<span class="ai-stats-value" id="mock-stats">0/0 (0%)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ANALYTICS TAB -->
+<div class="tab-content" id="tab-analytics">
+<div class="container">
+<div class="analytics-grid">
+<div>
+<div class="card">
+<div class="card-header"><span class="card-title">📈 ОБЩАЯ СТАТИСТИКА</span></div>
+<div class="card-body">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+<div><div class="stat-label">Всего сделок</div><div class="stat-value" id="anTotalTrades">0</div></div>
+<div><div class="stat-label">Win Rate</div><div class="stat-value" id="anWinRate">0%</div></div>
+<div><div class="stat-label">Средний профит</div><div class="stat-value pos" id="anAvgWin">$0</div></div>
+<div><div class="stat-label">Средний убыток</div><div class="stat-value neg" id="anAvgLoss">$0</div></div>
+</div>
+<div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+<button class="btn btn-secondary btn-sm" onclick="exportTrades()">📥 Экспорт сделок</button>
+<button class="btn btn-secondary btn-sm" onclick="exportStatistics()">📊 Экспорт статистики</button>
+<button class="btn btn-secondary btn-sm" onclick="exportTradesDetailed()">📋 Детальный экспорт</button>
+<button class="btn btn-secondary btn-sm" onclick="exportAiAnalyses()">🤖 Экспорт анализов AI</button>
+<button class="btn btn-secondary btn-sm" onclick="exportTradeHistory()">📈 Экспорт хода сделок</button>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-header"><span class="card-title">⏰ WIN RATE ПО ЧАСАМ</span></div>
+<div class="card-body" id="hourlyStats"><div class="empty">Недостаточно данных</div></div>
+</div>
+</div>
+<div>
+<div class="card">
+<div class="card-header">
+<span class="card-title">💡 РЕКОМЕНДАЦИИ</span>
+<button class="btn btn-sm btn-secondary" onclick="generateRecommendations()">🔄 Обновить</button>
+</div>
+<div class="card-body" id="recommendationsList"><div class="empty">Нет рекомендаций</div></div>
+</div>
+<div class="card">
+<div class="card-header"><span class="card-title">🤖 СТАТИСТИКА AI</span></div>
+<div class="card-body" id="aiStats"><div class="empty">Загрузка...</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- FILTERS & PNL TAB (бывший POST-MORTEM) -->
+<div class="tab-content" id="tab-postmortem">
+<div class="container">
+
+<!-- ГРАФИК PNL -->
+<div class="card">
+<div class="card-header">
+<span class="card-title">📈 РОСТ PnL</span>
+<select id="pnlChartPeriod" onchange="loadPnlChart()" style="padding:3px 6px;background:var(--bg4);border:1px solid var(--border);color:var(--text);font-size:0.65rem;border-radius:4px;">
+<option value="7">7 дней</option>
+<option value="14">14 дней</option>
+<option value="30" selected>30 дней</option>
+<option value="60">60 дней</option>
+<option value="all">Всё время</option>
+</select>
+</div>
+<div class="card-body">
+<div style="position:relative;height:250px;width:100%;">
+<canvas id="pnlChart"></canvas>
+</div>
+<div id="pnlChartStats" style="display:flex;gap:20px;margin-top:10px;font-size:0.75rem;justify-content:center;"></div>
+</div>
+</div>
+
+<!-- ФИЛЬТРЫ ТОРГОВЛИ -->
+<div class="card">
+<div class="card-header">
+<span class="card-title">🎛️ ФИЛЬТРЫ ТОРГОВЛИ</span>
+<button class="btn btn-primary btn-sm" onclick="saveFilters()">💾 Сохранить</button>
+</div>
+<div class="card-body">
+
+<div class="form-section">🕐 РАЗРЕШЁННЫЕ ЧАСЫ (UTC)</div>
+<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px;">
+<label class="form-check filter-hour"><input type="checkbox" data-hour="0" checked><span>00-04</span></label>
+<label class="form-check filter-hour"><input type="checkbox" data-hour="4" checked><span>04-08</span></label>
+<label class="form-check filter-hour"><input type="checkbox" data-hour="8" checked><span>08-12</span></label>
+<label class="form-check filter-hour"><input type="checkbox" data-hour="12" checked><span>12-16</span></label>
+<label class="form-check filter-hour"><input type="checkbox" data-hour="16" checked><span>16-20</span></label>
+<label class="form-check filter-hour"><input type="checkbox" data-hour="20" checked><span>20-24</span></label>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+<button class="btn btn-sm btn-secondary" onclick="selectAllHours()">✅ Все</button>
+<button class="btn btn-sm btn-secondary" onclick="selectNoHours()">❌ Сбросить</button>
+<button class="btn btn-sm btn-secondary" onclick="selectBestHours()">⭐ Лучшие (16-24)</button>
+</div>
+
+<div class="form-section">📅 РАЗРЕШЁННЫЕ ДНИ</div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px;">
+<label class="form-check filter-day"><input type="checkbox" data-day="0" checked><span>Пн</span></label>
+<label class="form-check filter-day"><input type="checkbox" data-day="1" checked><span>Вт</span></label>
+<label class="form-check filter-day"><input type="checkbox" data-day="2" checked><span>Ср</span></label>
+<label class="form-check filter-day"><input type="checkbox" data-day="3" checked><span>Чт</span></label>
+<label class="form-check filter-day"><input type="checkbox" data-day="4" checked><span>Пт</span></label>
+<label class="form-check filter-day" style="background:var(--bg4);"><input type="checkbox" data-day="5" checked><span>Сб</span></label>
+<label class="form-check filter-day" style="background:var(--bg4);"><input type="checkbox" data-day="6" checked><span>Вс</span></label>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+<button class="btn btn-sm btn-secondary" onclick="selectAllDays()">✅ Все</button>
+<button class="btn btn-sm btn-secondary" onclick="selectWeekdays()">📊 Будни</button>
+<button class="btn btn-sm btn-secondary" onclick="selectWeekends()">🏖️ Выходные</button>
+</div>
+
+<div class="form-section">📈 НАПРАВЛЕНИЕ</div>
+<div style="display:flex;gap:16px;margin-bottom:16px;">
+<label class="form-check"><input type="checkbox" id="filterShort" checked> 🔴 SHORT</label>
+<label class="form-check"><input type="checkbox" id="filterLong" checked> 🟢 LONG</label>
+</div>
+
+<div class="form-section">₿ BTC ТРЕНД — РЕЖИМЫ</div>
+<div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;margin-bottom:12px;align-items:center;">
+<span style="color:var(--green);">📈 Бычий:</span>
+<select id="btcBullishMode" class="form-input" style="padding:4px 8px;font-size:0.8rem;">
+<option value="long_only">Только LONG</option>
+<option value="short_only">Только SHORT</option>
+<option value="any">Любой</option>
+<option value="any_incl_neutral">Любой вкл. нейтраль</option>
+<option value="none">Не торговать</option>
+</select>
+<div style="display:flex;align-items:center;gap:4px;" title="Мин. изменение BTC за 24ч для открытия позиции">
+<span style="font-size:0.7rem;color:var(--text2);">Откр.≥</span>
+<input type="number" id="btcBullishMinStr" min="0" max="10" step="0.1" value="0.5" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--green);font-size:0.8rem;border-radius:4px;text-align:center;">
+<span style="font-size:0.75rem;color:var(--text2);">%</span>
+</div>
+<span style="color:var(--red);">📉 Медвежий:</span>
+<select id="btcBearishMode" class="form-input" style="padding:4px 8px;font-size:0.8rem;">
+<option value="long_only">Только LONG</option>
+<option value="short_only" selected>Только SHORT</option>
+<option value="any">Любой</option>
+<option value="any_incl_neutral">Любой вкл. нейтраль</option>
+<option value="none">Не торговать</option>
+</select>
+<div style="display:flex;align-items:center;gap:4px;" title="Мин. изменение BTC за 24ч для открытия позиции">
+<span style="font-size:0.7rem;color:var(--text2);">Откр.≥</span>
+<input type="number" id="btcBearishMinStr" min="0" max="10" step="0.1" value="0.5" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--red);font-size:0.8rem;border-radius:4px;text-align:center;">
+<span style="font-size:0.75rem;color:var(--text2);">%</span>
+</div>
+<span style="color:var(--text2);">⚖️ Нейтральный:</span>
+<select id="btcNeutralMode" class="form-input" style="padding:4px 8px;font-size:0.8rem;">
+<option value="long_only">Только LONG</option>
+<option value="short_only">Только SHORT</option>
+<option value="any">Любой</option>
+<option value="any_incl_neutral">Любой вкл. нейтраль</option>
+<option value="none" selected>Не торговать</option>
+</select>
+<span></span>
+</div>
+
+<div class="form-section" style="font-size:0.8rem;">📉📈 АВТОЗАКРЫТИЕ ПРИ ОСЛАБЛЕНИИ ТРЕНДА</div>
+<div style="display:grid;grid-template-columns:auto auto 1fr;gap:6px 10px;margin-bottom:12px;align-items:center;">
+<label class="form-check" style="margin:0;"><input type="checkbox" id="closeLongOnWeakBull"> Закрывать LONG</label>
+<div style="display:flex;align-items:center;gap:4px;" title="Если BTC 24h упал ниже +X% — бычий тренд ослаб, закрываем LONG">
+<span style="font-size:0.7rem;color:var(--text2);">если бычий &lt;</span>
+<input type="number" id="closeLongWeakBullThreshold" min="0" max="10" step="0.1" value="0.5" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--green);font-size:0.8rem;border-radius:4px;text-align:center;">
+<span style="font-size:0.75rem;color:var(--text2);">%</span>
+</div>
+<span style="font-size:0.65rem;color:var(--text3);">BTC +3% → LONG → BTC +0.5% → закрыть</span>
+
+<label class="form-check" style="margin:0;"><input type="checkbox" id="closeShortOnWeakBear"> Закрывать SHORT</label>
+<div style="display:flex;align-items:center;gap:4px;" title="Если BTC 24h поднялся выше -X% — медвежий тренд ослаб, закрываем SHORT">
+<span style="font-size:0.7rem;color:var(--text2);">если медв. &gt; -</span>
+<input type="number" id="closeShortWeakBearThreshold" min="0" max="10" step="0.1" value="0.5" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--red);font-size:0.8rem;border-radius:4px;text-align:center;">
+<span style="font-size:0.75rem;color:var(--text2);">%</span>
+</div>
+<span style="font-size:0.65rem;color:var(--text3);">BTC -3% → SHORT → BTC -0.5% → закрыть</span>
+</div>
+
+<div class="form-section" style="font-size:0.8rem;">⚖️ АВТОЗАКРЫТИЕ ПРИ НЕЙТРАЛИ</div>
+<div style="display:flex;gap:16px;margin-bottom:16px;">
+<label class="form-check"><input type="checkbox" id="closeLongOnNeutral"> Закрывать LONG</label>
+<label class="form-check"><input type="checkbox" id="closeShortOnNeutral"> Закрывать SHORT</label>
+</div>
+
+<div class="form-section">🎯 ПРОЧЕЕ</div>
+<div class="form-row">
+<div class="form-group">
+<label class="form-label">Мин. Confidence %</label>
+<input type="number" class="form-input" id="filterConfidence" value="70" min="50" max="95">
+</div>
+</div>
+
+<div class="form-section">⏰ КАЧЕСТВО ВХОДОВ</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+<label class="form-check" title="Если к моменту открытия монета откатилась ниже min_change_filter — вход пропускается">
+<input type="checkbox" id="recheckChangeAtOpen" checked>
+<span>⏰ Пропускать опоздавшие входы <span style="font-size:0.65rem;color:var(--text3);">(change упал ниже порога к открытию)</span></span>
+</label>
+</div>
+
+<div style="margin-top:16px;padding:12px;background:var(--bg4);border-radius:8px;font-size:0.75rem;">
+<strong>📊 Текущие фильтры:</strong>
+<div id="filtersPreview" style="margin-top:8px;color:var(--text2);">Загрузка...</div>
+</div>
+
+</div>
+</div>
+
+</div>
+</div>
+<!-- BLACKLIST TAB -->
+<div class="tab-content" id="tab-blacklist">
+<div class="container">
+<div class="card">
+<div class="card-header">
+<span class="card-title">⚫ ЧЕРНЫЙ СПИСОК МОНЕТ</span>
+<div style="display:flex;gap:8px;">
+<button class="btn btn-danger btn-sm" onclick="clearBlacklist()">🗑️ Очистить</button>
+<button class="btn btn-success btn-sm" onclick="loadBlacklist()">🔄 Обновить</button>
+</div>
+</div>
+<div class="card-body">
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+<input type="text" class="form-input" id="quickAddSymbol" placeholder="Введите пару (BTC/USDT)" style="flex:1;">
+<select class="form-input" id="quickAddReason" style="width:180px;">
+<option value="Неудачная сделка">Неудачная сделка</option>
+<option value="Высокая волатильность">Высокая волатильность</option>
+<option value="Ручное исключение">Ручное исключение</option>
+</select>
+<button class="btn btn-primary" onclick="quickAddBlacklist()">⚫ Добавить</button>
+</div>
+<div class="table-wrap" style="max-height: 400px;">
+<table>
+<thead><tr><th>Пара</th><th>Причина</th><th>Добавлено</th><th>Действия</th></tr></thead>
+<tbody id="blacklistTable"><tr><td colspan="4" class="empty">Черный список пуст</td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- AI TAB -->
+<div class="tab-content" id="tab-ai">
+<div class="container">
+<!-- AI Sub-tabs -->
+<div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+<button class="btn btn-sm btn-secondary" id="aiSubStatus" onclick="showAiSubTab('status')" style="background: var(--cyan); color: var(--bg);">📊 Статус</button>
+<button class="btn btn-sm btn-secondary" id="aiSubHistory" onclick="showAiSubTab('history')">📜 История анализов</button>
+<button class="btn btn-sm btn-secondary" id="aiSubPrompt" onclick="showAiSubTab('prompt')">✏️ Редактор промпта</button>
+</div>
+<!-- AI Status Sub-tab -->
+<div id="aiSubTabStatus" class="ai-subtab active">
+<div class="analytics-grid">
+<div>
+<div class="card">
+<div class="card-header"><span class="card-title">🤖 AI ПРОВАЙДЕРЫ</span></div>
+<div class="card-body">
+<div id="aiProviderStatus">
+<div style="margin-bottom:12px;padding:12px;background:var(--bg4);border-radius:6px;">
+<div style="display:flex;justify-content:space-between;align-items:center;">
+<span><b>DeepSeek</b></span>
+<span class="badge badge-green" id="dsStatus">Не настроен</span>
+</div>
+<div style="font-size:0.7rem;color:var(--text3);margin-top:4px;">deepseek-chat</div>
+<div id="dsError" style="font-size:0.7rem;color:#f44;margin-top:4px;display:none;"></div>
+<div id="dsStats" style="font-size:0.7rem;color:var(--text3);margin-top:4px;"></div>
+</div>
+<div style="margin-bottom:12px;padding:12px;background:var(--bg4);border-radius:6px;">
+<div style="display:flex;justify-content:space-between;align-items:center;">
+<span><b>Groq</b></span>
+<span class="badge badge-orange" id="grStatus">Не настроен</span>
+</div>
+<div style="font-size:0.7rem;color:var(--text3);margin-top:4px;">llama-3.1-8b-instant</div>
+<div id="grError" style="font-size:0.7rem;color:#f44;margin-top:4px;display:none;"></div>
+<div id="grStats" style="font-size:0.7rem;color:var(--text3);margin-top:4px;"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-header"><span class="card-title">📊 A/B ТЕСТИРОВАНИЕ</span></div>
+<div class="card-body" id="abTestStats"><div class="empty">Недостаточно данных</div></div>
+</div>
+</div>
+<div>
+<div class="card">
+<div class="card-header"><span class="card-title">📈 СРАВНЕНИЕ AI</span></div>
+<div class="card-body" id="aiComparison"><div class="empty">Загрузка...</div></div>
+</div>
+</div>
+</div>
+</div>
+<!-- AI History Sub-tab -->
+<div id="aiSubTabHistory" class="ai-subtab" style="display:none;">
+<div class="card">
+<div class="card-header">
+<span class="card-title">📜 ИСТОРИЯ АНАЛИЗОВ AI</span>
+<span class="badge badge-cyan" id="aiAnalysesCount">0</span>
+<button class="btn btn-sm btn-secondary" onclick="loadAiAnalyses()">🔄 Обновить</button>
+<button class="btn btn-sm btn-secondary" onclick="exportAiAnalyses()">📥 Экспорт</button>
+</div>
+<div class="card-body">
+<div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+<input type="text" class="form-input" id="aiHistoryFilter" placeholder="Фильтр по символу..." style="width: 150px; padding: 6px;">
+<select class="form-input" id="aiHistoryProvider" style="width: 120px; padding: 6px;">
+<option value="">Все провайдеры</option>
+<option value="deepseek">DeepSeek</option>
+<option value="groq">Groq</option>
+</select>
+<select class="form-input" id="aiAnalysesLimitSelect" style="width: 90px; padding: 6px;" onchange="aiAnalysesOffset=0; loadAiAnalyses()">
+<option value="20">20 шт</option>
+<option value="50" selected>50 шт</option>
+<option value="100">100 шт</option>
+<option value="200">200 шт</option>
+</select>
+<button class="btn btn-sm btn-primary" onclick="aiAnalysesOffset=0; loadAiAnalyses()">Найти</button>
+</div>
+<div id="aiAnalysesList" style="max-height: 500px; overflow-y: auto;">
+<div class="empty">Загрузка...</div>
+</div>
+<div style="margin-top: 12px; display: flex; justify-content: center; gap: 8px;">
+<button class="btn btn-sm btn-secondary" onclick="aiAnalysesPrev()">&lt; Назад</button>
+<span id="aiAnalysesPage" style="padding: 6px;">1</span>
+<button class="btn btn-sm btn-secondary" onclick="aiAnalysesNext()">Вперёд &gt;</button>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Prompt Editor Sub-tab -->
+<div id="aiSubTabPrompt" class="ai-subtab" style="display:none;">
+<div class="card">
+<div class="card-header">
+<span class="card-title">✏️ РЕДАКТОР СИСТЕМНОГО ПРОМПТА</span>
+<button class="btn btn-sm btn-success" onclick="savePrompt()">💾 Сохранить</button>
+<button class="btn btn-sm btn-secondary" onclick="resetPrompt()">↺ Сбросить</button>
+<button class="btn btn-sm btn-secondary" onclick="exportPrompt()">📥 Экспорт</button>
+<label class="btn btn-sm btn-secondary" style="cursor: pointer;">
+📤 Импорт
+<input type="file" id="promptFileInput" accept=".txt" style="display:none;" onchange="importPrompt(this)">
+</label>
+</div>
+<div class="card-body">
+<div style="margin-bottom: 8px; font-size: 0.75rem; color: var(--text3);">
+Системный промпт определяет поведение AI при анализе монет. Изменения применяются сразу.
+</div>
+<textarea id="promptEditor" style="width:100%; height:400px; background:var(--bg4); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:12px; font-family:inherit; font-size:0.8rem; resize:vertical;"></textarea>
+<div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+<span id="promptStatus" style="font-size: 0.7rem; color: var(--text3);">Промпт по умолчанию</span>
+<span style="font-size: 0.7rem; color: var(--text3);">Символов: <span id="promptLength">0</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Settings Modal -->
+<div class="modal-bg" id="settingsModal">
+<div class="modal">
+<div class="modal-header">
+<span class="modal-title">⚙️ Настройки v5.6</span>
+<button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+</div>
+<div class="modal-body">
+
+<div class="form-section">🔑 API КЛЮЧИ</div>
+<div class="form-group">
+<label class="form-label">DeepSeek API Key</label>
+<input type="password" class="form-input" id="setDeepseekKey" placeholder="sk-...">
+</div>
+<div class="form-group">
+<label class="form-label">Groq API Key</label>
+<input type="password" class="form-input" id="setGroqKey" placeholder="gsk_...">
+</div>
+<div class="form-group">
+<label class="form-label">AI Провайдер (для торговли)</label>
+<select class="form-input" id="setAiProvider">
+<option value="mock" selected>Mock (RSI сигналы)</option>
+<option value="deepseek">DeepSeek</option>
+<option value="groq">Groq</option>
+</select>
+</div>
+<div style="font-size: 0.7rem; color: var(--text3); margin-top: 4px;">
+Mock = простые RSI сигналы. DeepSeek/Groq = AI анализ (для агента).
+</div>
+
+<div class="form-section">💰 ТОРГОВЛЯ</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Баланс ($)</label><input type="number" class="form-input" id="setBalance"></div>
+<div class="form-group"><label class="form-label">Размер позиции ($)</label><input type="number" class="form-input" id="setSize"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Плечо</label><input type="number" class="form-input" id="setLev"></div>
+<div class="form-group"><label class="form-label">Макс. позиций</label><input type="number" class="form-input" id="setMaxPos"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">🛑 Stop Loss %</label><input type="number" class="form-input" id="setSlPct" step="0.5" min="1" max="20" value="5"></div>
+<div class="form-group"><label class="form-label">🎯 Take Profit %</label><input type="number" class="form-input" id="setTpPct" step="0.5" min="1" max="30" value="7"></div>
+</div>
+
+<div class="form-section">📊 ТРЕЙЛИНГ СТОП</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Активация при +%</label><input type="number" class="form-input" id="setTrailAct" step="0.5" value="2.0"></div>
+<div class="form-group"><label class="form-label">Расстояние %</label><input type="number" class="form-input" id="setTrailDist" step="0.5" value="1.0"></div>
+</div>
+<div class="form-row">
+<label class="form-check"><input type="checkbox" id="setTrailOn" checked> Включить трейлинг</label>
+<label class="form-check"><input type="checkbox" id="setAdaptiveTrail"> ATR-адаптивный (для волатильных)</label>
+</div>
+<div style="font-size: 0.7rem; color: var(--text3); margin-top: 4px;">
+При +% активации включается трейлинг. ATR-адаптивный автоматически расширяет дистанцию для волатильных монет.
+</div>
+
+<div class="form-section">🔍 СКАНЕР</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Интервал (сек)</label><input type="number" class="form-input" id="setScan" value="300"></div>
+<div class="form-group"><label class="form-label">Мин. Confidence %</label><input type="number" class="form-input" id="setConfidence" value="70"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Макс. монет для анализа</label><input type="number" class="form-input" id="setMaxAnalyze" value="15" min="5" max="50"></div>
+<div class="form-group"><label class="form-label">Мин. изменение 24ч %</label><input type="number" class="form-input" id="setMinChange" value="3" step="0.5" min="1" max="20"></div>
+</div>
+
+<div class="form-section">🛡️ ЗАЩИТА И КУЛДАУНЫ</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Глоб. кулдаун после SL (мин)</label><input type="number" class="form-input" id="setCooldownLoss" value="5" min="0" max="60"></div>
+<div class="form-group"><label class="form-label">Кулдаун монеты после SL (мин)</label><input type="number" class="form-input" id="setSymbolCooldown" value="30" min="0" max="120"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Макс. SL на монету за день</label><input type="number" class="form-input" id="setMaxSymbolLosses" value="2" min="1" max="10"></div>
+<div class="form-group"><label class="form-label">Дневной лимит убытка %</label><input type="number" class="form-input" id="setMaxDailyLoss" value="15" step="1" min="1" max="50"></div>
+</div>
+<div style="font-size: 0.7rem; color: var(--text3); margin-top: 4px;">
+Глоб. кулдаун — пауза ВСЕГО бота после любого SL. Кулдаун монеты — пауза только для конкретного символа. 0 = отключить.
+</div>
+
+<div class="form-section">📱 TELEGRAM</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Bot Token</label><input type="password" class="form-input" id="setTgToken" placeholder="123456:ABC..."></div>
+<div class="form-group"><label class="form-label">Chat ID</label><input type="text" class="form-input" id="setTgChat" placeholder="-100..."></div>
+</div>
+
+<div class="form-section">💵 КОМИССИИ</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Комиссия %</label><input type="number" class="form-input" id="setCommissionRate" value="0.08" step="0.01"></div>
+<label class="form-check"><input type="checkbox" id="setCommissionEnabled" checked> Учитывать в PnL</label>
+</div>
+
+<div class="form-section">🚀 LIVE ТОРГОВЛЯ (BINANCE)</div>
+<div style="background: rgba(255,0,0,0.1); border: 1px solid var(--red); border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+<div style="color: var(--red); font-weight: bold; margin-bottom: 5px;">⚠️ ВНИМАНИЕ: РЕАЛЬНЫЕ ДЕНЬГИ!</div>
+<div style="font-size: 0.75rem; color: var(--text2);">LIVE режим использует настоящие средства на Binance Futures. Рекомендуется начать с тестнета!</div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">🔑 Binance API Key</label><input type="password" class="form-input" id="setBinanceKey" placeholder="Введите API ключ..."></div>
+<div class="form-group"><label class="form-label">🔐 Secret Key</label><input type="password" class="form-input" id="setBinanceSecret" placeholder="Введите Secret..."></div>
+</div>
+<div class="form-row">
+<label class="form-check"><input type="checkbox" id="setTestnet"> Testnet (тестовая сеть)</label>
+<label class="form-check"><input type="checkbox" id="setLiveEnabled" style="accent-color: red;"> <span style="color: var(--red);">LIVE ENABLED</span></label>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Макс. позиция ($)</label><input type="number" class="form-input" id="setLiveMaxPos" value="100"></div>
+<div class="form-group"><label class="form-label">Дневной лимит убытка ($)</label><input type="number" class="form-input" id="setLiveDailyLoss" value="50"></div>
+</div>
+<div style="font-size: 0.7rem; color: var(--text3); margin-top: 4px;">
+Мин. ордер на Binance: $5 (рекомендуется $10+). API ключи нужны с правами на USDM Futures.
+</div>
+<div style="margin-top: 10px;">
+<button class="btn btn-secondary" onclick="testBinanceConnection()" style="font-size: 0.8rem;">🔌 Тест подключения</button>
+<span id="binanceTestResult" style="margin-left: 10px; font-size: 0.8rem;"></span>
+</div>
+
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="closeModal('settingsModal')">Отмена</button>
+<button class="btn btn-primary" onclick="saveSettings()">💾 Сохранить</button>
+</div>
+</div>
+</div>
+<!-- Cooldowns Modal -->
+<div class="modal-bg" id="cooldownsModal">
+<div class="modal" style="max-width: 500px;">
+<div class="modal-header">
+<span class="modal-title">🛡️ Блокировки и кулдауны</span>
+<button class="modal-close" onclick="closeModal('cooldownsModal')">&times;</button>
+</div>
+<div class="modal-body" id="cooldownsContent" style="max-height: 400px; overflow-y: auto;">
+<div style="color: var(--text3); text-align: center; padding: 20px;">Загрузка...</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="closeModal('cooldownsModal')">Закрыть</button>
+<button class="btn btn-warning" onclick="resetCooldowns()" title="Сбросить все кулдауны и дневные счётчики SL">🔄 Сбросить всё</button>
+</div>
+</div>
+</div>
+<!-- Manual Trade Modal - ОБНОВЛЕНО для поддержки LONG/SHORT -->
+<div class="modal-bg" id="manualModal">
+<div class="modal">
+<div class="modal-header">
+<span class="modal-title">✚ Ручная сделка</span>
+<button class="modal-close" onclick="closeModal('manualModal')">&times;</button>
+</div>
+<div class="modal-body">
+<div class="form-group">
+<label class="form-label">Направление</label>
+<div style="display: flex; gap: 10px;">
+<label class="form-check" style="flex: 1;">
+<input type="radio" name="direction" value="SHORT" checked onchange="updateManualDirection()">
+<span style="color: var(--red);">🔴 SHORT</span>
+</label>
+<label class="form-check" style="flex: 1;">
+<input type="radio" name="direction" value="LONG" onchange="updateManualDirection()">
+<span style="color: var(--green);">🟢 LONG</span>
+</label>
+</div>
+</div>
+<div class="form-group"><label class="form-label">Пара</label><input type="text" class="form-input" id="mSymbol" placeholder="BTC/USDT"></div>
+<div class="form-group"><label class="form-label">Цена входа</label><input type="number" class="form-input" id="mEntry" step="0.000001"></div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">Stop Loss</label><input type="number" class="form-input" id="mSL" step="0.000001"></div>
+<div class="form-group"><label class="form-label">Take Profit</label><input type="number" class="form-input" id="mTP1" step="0.000001"></div>
+</div>
+<button class="btn btn-secondary" onclick="fetchPrice()" style="width: 100%;">📈 Получить цену</button>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="closeModal('manualModal')">Отмена</button>
+<button class="btn btn-danger" id="manualTradeBtn" onclick="submitManual()">🔴 ОТКРЫТЬ SHORT</button>
+</div>
+</div>
+</div>
+<!-- Reset Modal -->
+<div class="modal-bg" id="resetModal">
+<div class="modal" style="max-width: 340px;">
+<div class="modal-header">
+<span class="modal-title">⚠️ Сброс</span>
+<button class="modal-close" onclick="closeModal('resetModal')">&times;</button>
+</div>
+<div class="modal-body" style="text-align: center;">
+<p>Закрыть все позиции и сбросить?</p>
+<label class="form-check" style="justify-content: center; margin-top: 14px;">
+<input type="checkbox" id="keepSettings" checked> Сохранить настройки
+</label>
+</div>
+<div class="modal-footer" style="justify-content: center;">
+<button class="btn btn-secondary" onclick="closeModal('resetModal')">Отмена</button>
+<button class="btn btn-danger" onclick="doReset()">Сбросить</button>
+</div>
+</div>
+</div>
+<!-- Agent Chat Modal -->
+<div class="modal-bg" id="agentChatModal">
+<div class="modal" style="max-width: 600px; height: 70vh;">
+<div class="modal-header">
+<span class="modal-title">🤖 Smart Agent v6.0</span>
+<div style="display:flex;gap:6px;">
+<button class="btn btn-sm" style="background:var(--cyan);color:#000;padding:2px 8px;font-size:0.65rem;" onclick="closeModal('agentChatModal');showAgentHelp()">📚 Справка</button>
+<button class="modal-close" onclick="closeModal('agentChatModal')">&times;</button>
+</div>
+</div>
+<div class="modal-body" style="display: flex; flex-direction: column; height: calc(100% - 120px); padding: 10px;">
+<div id="chatMessages" style="flex: 1; overflow-y: auto; padding: 10px; background: var(--bg3); border-radius: 8px; margin-bottom: 10px;">
+<div style="color: var(--text3); text-align: center; padding: 10px; font-size: 0.75rem; line-height: 1.4;">
+🤖 <b>Smart Agent</b> готов к работе!<br>
+<span style="font-size:0.65rem;">Нажмите 📚 Справка для списка всех команд</span>
+</div>
+</div>
+<div style="display: flex; gap: 8px;">
+<input type="text" id="chatInput" class="form-input" placeholder="Напиши сообщение..." 
+       style="flex: 1;" onkeypress="if(event.key==='Enter')sendChatMessage()">
+<button class="btn btn-primary" onclick="sendChatMessage()">📤</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Agent Help Modal -->
+<div class="modal-bg" id="agentHelpModal">
+<div class="modal" style="max-width: 700px; height: 80vh;">
+<div class="modal-header">
+<span class="modal-title">📚 СПРАВОЧНИК КОМАНД АГЕНТА v6.1</span>
+<button class="modal-close" onclick="closeModal('agentHelpModal')">&times;</button>
+</div>
+<div class="modal-body" style="overflow-y: auto; padding: 15px; font-size: 0.75rem; line-height: 1.6;">
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;">
+<div style="color:var(--cyan);font-weight:bold;margin-bottom:6px;">💡 КАК ПОЛЬЗОВАТЬСЯ</div>
+<div style="color:var(--text3);">Скопируйте команду и вставьте в чат агента. Или просто напишите своими словами — агент поймёт!</div>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;">
+<div style="color:var(--red);font-weight:bold;margin-bottom:6px;">🔴 PAPER TRADING (виртуальная торговля)</div>
+<table style="width:100%;font-size:0.7rem;"><tbody>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:POSITIONS]</code></td><td style="color:var(--text3);">Показать открытые позиции</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:CLOSE:RVV-0012]</code></td><td style="color:var(--text3);">Закрыть позицию по ID</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:CLOSE_ALL]</code></td><td style="color:var(--text3);">Закрыть все позиции</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:PAUSE:true/false]</code></td><td style="color:var(--text3);">Пауза/запуск сканера</td></tr>
+</tbody></table>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;">
+<div style="color:var(--orange);font-weight:bold;margin-bottom:6px;">⚙️ СТРАТЕГИЯ</div>
+<table style="width:100%;font-size:0.7rem;"><tbody>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:STRATEGY]</code></td><td style="color:var(--text3);">Текущие параметры стратегии</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:STRATEGY:SET:sl:3.5]</code></td><td style="color:var(--text3);">Изменить Stop Loss %</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:STRATEGY:SET:tp:7.0]</code></td><td style="color:var(--text3);">Изменить Take Profit %</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:STRATEGY:SET:trailing_activation:1.0]</code></td><td style="color:var(--text3);">Трейлинг активация %</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:STRATEGY:SET:trailing_distance:0.25]</code></td><td style="color:var(--text3);">Трейлинг дистанция %</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:SET_PARAM:btc_filter:false]</code></td><td style="color:var(--text3);">Выключить BTC фильтр</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:SET_PARAM:recheck:true]</code></td><td style="color:var(--text3);">⏰ Вкл/выкл фильтр опоздавших входов</td></tr>
+</tbody></table>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;">
+<div style="color:var(--green);font-weight:bold;margin-bottom:6px;">📈 ОПТИМИЗАЦИЯ</div>
+<table style="width:100%;font-size:0.7rem;"><tbody>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:GRID_OPTIMIZE:30:100]</code></td><td style="color:var(--text3);">Grid Search (дни:топ_N монет)</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:APPLY_BEST]</code></td><td style="color:var(--text3);">Применить лучшие параметры</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:WFA:30:100]</code></td><td style="color:var(--text3);">Walk-Forward Analysis</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:OPTIMIZE_BTC:30:50]</code></td><td style="color:var(--text3);">🎯 Оптимизация BTC уровней (дни:монет)</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:OPTIMIZE_BTC:14:100:full]</code></td><td style="color:var(--text3);">Полная оптимизация (больше комбинаций)</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:APPLY_BTC]</code></td><td style="color:var(--text3);">Применить найденные BTC уровни</td></tr>
+</tbody></table>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;">
+<div style="color:var(--yellow);font-weight:bold;margin-bottom:6px;">🧪 БЭКТЕСТ</div>
+<table style="width:100%;font-size:0.7rem;"><tbody>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:BACKTEST:current:30:500]</code></td><td style="color:var(--text3);">Бэктест текущей стратегии (дни:монет)</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:BACKTEST_PATTERNS:60:200]</code></td><td style="color:var(--text3);">Бэктест с анализом паттернов</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:ANALYZE_PATTERNS:30]</code></td><td style="color:var(--text3);">Анализ реальных сделок</td></tr>
+</tbody></table>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;">
+<div style="color:var(--purple, #a855f7);font-weight:bold;margin-bottom:6px;">📊 АНАЛИТИКА</div>
+<table style="width:100%;font-size:0.7rem;"><tbody>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:MARKET]</code></td><td style="color:var(--text3);">Обзор рынка и топ пампов</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:STATS:30]</code></td><td style="color:var(--text3);">Статистика за N дней</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:TOP:50]</code></td><td style="color:var(--text3);">Топ N монет по объёму</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:ANALYZE_LATE]</code></td><td style="color:var(--text3);">Анализ опоздавших входов (после сброса PnL)</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:ANALYZE_LATE:all]</code></td><td style="color:var(--text3);">Анализ опоздавших (все сделки) — WR/PF свежих vs опоздавших</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:BACKTEST_CHANGE:30:100]</code></td><td style="color:var(--text3);">🎯 Найти оптимальный порог входа 5-25% (дни:монет)</td></tr>
+</tbody></table>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;">
+<div style="font-weight:bold;margin-bottom:6px;">📉 ПАМЯТЬ И BLACKLIST</div>
+<table style="width:100%;font-size:0.7rem;"><tbody>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:BLACKLIST:DOGE:lowWR]</code></td><td style="color:var(--text3);">Добавить в чёрный список</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:BLACKLIST_WORST]</code></td><td style="color:var(--text3);">Заблокировать худшие из бэктеста</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:WHITELIST_PROFITABLE]</code></td><td style="color:var(--text3);">Только прибыльные монеты</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:MEMORY]</code></td><td style="color:var(--text3);">Показать память агента</td></tr>
+</tbody></table>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;margin-bottom:12px;border:1px solid var(--red);">
+<div style="color:var(--red);font-weight:bold;margin-bottom:6px;">⚡ LIVE TRADING (реальная торговля) ⚠️ ОСТОРОЖНО!</div>
+<table style="width:100%;font-size:0.7rem;"><tbody>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_STATUS]</code></td><td style="color:var(--text3);">Статус реальной торговли</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_TEST]</code></td><td style="color:var(--text3);">Тест подключения Binance</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_BALANCE]</code></td><td style="color:var(--text3);">Баланс на Binance</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_ENABLE:true]</code></td><td style="color:var(--text3);">ВКЛЮЧИТЬ реальную торговлю</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_ENABLE:false]</code></td><td style="color:var(--text3);">Выключить реальную торговлю</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_OPEN:BTC:LONG:20]</code></td><td style="color:var(--text3);">Открыть LIVE позицию ($)</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_CLOSE:LIVE-123]</code></td><td style="color:var(--text3);">Закрыть LIVE позицию</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_CLOSE_ALL]</code></td><td style="color:var(--text3);">Закрыть ВСЕ LIVE позиции</td></tr>
+<tr><td style="color:var(--cyan);padding:3px 8px;white-space:nowrap;"><code>[TOOL:LIVE_SL:LIVE-123:2.0]</code></td><td style="color:var(--text3);">Обновить SL позиции</td></tr>
+</tbody></table>
+</div>
+
+<div style="background:var(--bg4);padding:10px;border-radius:8px;border:1px solid var(--cyan);">
+<div style="color:var(--cyan);font-weight:bold;margin-bottom:6px;">💡 ПОДСКАЗКИ</div>
+<div style="color:var(--text3);font-size:0.65rem;">
+• Можно просто писать своими словами: «покажи позиции», «запусти бэктест на 30 дней»<br>
+• Агент понимает русский и английский<br>
+• Для оптимизации рекомендуется 30+ дней и 100+ монет<br>
+• OPTIMIZE_BTC подбирает пороги открытия/закрытия по тренду BTC<br>
+• Бэктест теперь учитывает BTC автозакрытие (LONG/SHORT при ослаблении тренда)<br>
+• ANALYZE_LATE показывает статистику по входам с опозданием (монета вернулась до открытия)<br>
+• LIVE команды требуют настроенных API ключей Binance
+</div>
+</div>
+
+</div>
+</div>
+</div>
+<script>
+let chart = null, series = null, settings = {}, paused = false, currentSymbol = 'BTC/USDT';
+let openPositions = [], chartData = [], isUserScrolling = false, levelLines = [], chartInitialized = false;
+
+// Умное форматирование цены: больше знаков для мелких монет
+function fmtPrice(p) {
+    if (!p || p <= 0) return '$0';
+    if (p < 0.0001) return '$' + p.toFixed(8);
+    if (p < 0.001) return '$' + p.toFixed(7);
+    if (p < 0.01) return '$' + p.toFixed(6);
+    if (p < 0.1) return '$' + p.toFixed(5);
+    if (p < 1) return '$' + p.toFixed(4);
+    if (p < 100) return '$' + p.toFixed(3);
+    return '$' + p.toFixed(2);
+}
+let blacklist = [], contextPosition = null;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// Time
+function updateHeaderTime() {
+const now = new Date();
+const gmt2 = new Date(now.getTime() + (2 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+document.getElementById('headerTime').textContent = gmt2.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit', second: '2-digit'}) + ' GMT+2';
+}
+setInterval(updateHeaderTime, 1000);
+updateHeaderTime();
+function beep(f=800) {
+if (!document.getElementById('soundOn').checked) return;
+try {
+const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+o.connect(g); g.connect(audioCtx.destination);
+o.frequency.value = f; g.gain.value = 0.1;
+o.start(); o.stop(audioCtx.currentTime + 0.15);
+} catch(e) {}
+}
+async function fixPnl() {
+try {
+const r = await fetch('/api/recalculate_pnl', { method: 'POST' });
+const data = await r.json();
+if (data.success && data.result) {
+const res = data.result;
+if (res.corrected) {
+toast('PnL Исправлен', `Было: $${res.old_total_pnl.toFixed(2)}, Стало: $${res.new_total_pnl.toFixed(2)}`, 'success');
+} else {
+toast('PnL OK', `PnL корректен: $${res.new_total_pnl.toFixed(2)}`, 'info');
+}
+updatePortfolio();
+} else {
+toast('Ошибка', data.error || 'Unknown', 'error');
+}
+} catch(e) {
+toast('Ошибка', e.message, 'error');
+}
+}
+function toast(title, msg, type='info') {
+const t = document.createElement('div');
+t.className = 'toast ' + type;
+t.innerHTML = '<b>' + title + '</b><div style="font-size:0.7rem;color:var(--text2)">' + msg + '</div>';
+document.getElementById('toasts').appendChild(t);
+setTimeout(() => t.remove(), 3500);
+}
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+// TABS
+function showTab(tab) {
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
+document.getElementById('tab-' + tab).classList.add('active');
+if (tab === 'positions') updatePositionsUI();
+else if (tab === 'analytics') loadAnalytics();
+else if (tab === 'blacklist') loadBlacklist();
+else if (tab === 'postmortem') loadPostMortems();
+else if (tab === 'ai') loadAIStats();
+}
+function showAiSubTab(tab) {
+document.querySelectorAll('.ai-subtab').forEach(t => t.style.display = 'none');
+document.getElementById('aiSubTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
+document.querySelectorAll('[id^="aiSub"]').forEach(b => {
+if (b.tagName === 'BUTTON') {
+b.style.background = 'var(--bg3)';
+b.style.color = 'var(--text)';
+}
+});
+document.getElementById('aiSub' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.background = 'var(--cyan)';
+document.getElementById('aiSub' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.color = 'var(--bg)';
+if (tab === 'history') loadAiAnalyses();
+if (tab === 'prompt') loadPrompt();
+}
+// MODE
+async function setMode(mode) {
+try {
+// Если переключаемся на LIVE - проверяем готовность
+if (mode === 'LIVE') {
+    // Проверяем статус LIVE торговли
+    const liveR = await fetch('/api/live/status');
+    const liveStatus = await liveR.json();
+    
+    if (!liveStatus.api_configured) {
+        toast('⚠️ LIVE режим', 'Сначала настройте API ключи Binance в настройках!', 'error');
+        openSettings(); // Открываем настройки
+        return;
+    }
+    
+    // Предупреждение о реальных деньгах
+    if (!confirm('⚠️ ВНИМАНИЕ!\n\nLIVE режим использует РЕАЛЬНЫЕ деньги на Binance!\n\nВы уверены?')) {
+        return;
+    }
+    
+    // Включаем live_trader
+    await fetch('/api/live/enable', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enable: true})
+    });
+}
+
+// Если выключаем LIVE
+if (mode === 'PAPER') {
+    await fetch('/api/live/enable', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enable: false})
+    });
+}
+
+const r = await fetch('/api/settings', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({trade_mode: mode})
+});
+if (r.ok) {
+document.getElementById('modePaper').classList.toggle('active', mode === 'PAPER');
+document.getElementById('modeLive').classList.toggle('active', mode === 'LIVE');
+document.getElementById('modeLive').classList.toggle('live', mode === 'LIVE');
+// Обновляем индикатор режима
+const tmEl = document.getElementById('trade-mode');
+if (tmEl) {
+    tmEl.className = mode === 'LIVE' ? 'trade-mode live' : 'trade-mode paper';
+    tmEl.innerHTML = mode === 'LIVE' ? '💰 LIVE' : '📝 PAPER';
+}
+toast('Режим', mode === 'LIVE' ? '💰 LIVE режим АКТИВЕН!' : '📝 Paper режим', mode === 'LIVE' ? 'warning' : 'info');
+updateStatus();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+// HEALTH
+async function updateHealth() {
+try {
+const r = await fetch('/api/health');
+const d = await r.json();
+const ind = document.getElementById('healthIndicator');
+const txt = document.getElementById('healthText');
+ind.className = 'health-indicator ' + d.overall;
+txt.textContent = d.overall.toUpperCase();
+document.getElementById('hBinance').textContent = d.binance_status === 'ok' ? `OK (${d.binance_ping_ms}ms)` : 'ERROR';
+document.getElementById('hBinance').className = d.binance_status === 'ok' ? 'health-status-ok' : 'health-status-error';
+document.getElementById('hDeepseek').textContent = d.deepseek_status || '-';
+document.getElementById('hGroq').textContent = d.groq_status || '-';
+document.getElementById('hTelegram').textContent = d.telegram_status || '-';
+document.getElementById('hDailyPnl').textContent = '$' + (d.daily_pnl || 0).toFixed(2);
+document.getElementById('hDailyPnl').className = d.daily_pnl >= 0 ? 'health-status-ok' : 'health-status-error';
+} catch(e) {}
+}
+// STATUS
+async function updateStatus() {
+try {
+const r = await fetch('/api/status');
+const d = await r.json();
+paused = d.scanner_paused;
+updatePauseButtons();
+// AI badge
+const aiB = document.getElementById('aiBadge');
+const provider = d.ai_provider || 'mock';
+if (d.ai_ab_mode) {
+aiB.textContent = 'AI: A/B TEST';
+aiB.className = 'badge badge-purple';
+} else if (provider === 'mock') {
+aiB.textContent = 'AI: MOCK';
+aiB.className = 'badge badge-orange';
+} else {
+aiB.textContent = `AI: ${provider.toUpperCase()}`;
+aiB.className = 'badge badge-green';
+}
+// Mode
+document.getElementById('modePaper').classList.toggle('active', d.trade_mode === 'PAPER');
+document.getElementById('modeLive').classList.toggle('active', d.trade_mode === 'LIVE');
+document.getElementById('modeLive').classList.toggle('live', d.trade_mode === 'LIVE');
+// Blacklist
+document.getElementById('blacklistBadge').textContent = `⚫ ЧС: ${d.blacklist_count || 0}`;
+// Cooldowns badge
+const cdCount = d.cooldowns_count || 0;
+const cdBadge = document.getElementById('cooldownBadge');
+if (cdCount > 0) {
+    cdBadge.textContent = `🛡️ Блок: ${cdCount}`;
+    cdBadge.style.background = 'rgba(255,165,0,0.15)';
+    cdBadge.style.color = 'var(--orange)';
+    cdBadge.style.borderColor = 'var(--orange)';
+} else {
+    cdBadge.textContent = '🛡️ Блок: 0';
+    cdBadge.style.background = 'var(--bg3)';
+    cdBadge.style.color = 'var(--text3)';
+    cdBadge.style.borderColor = 'var(--border)';
+}
+// Trade mode
+const tradeModeEl = document.getElementById('trade-mode');
+if (d.trade_mode === 'LIVE') {
+    tradeModeEl.innerHTML = '💰 LIVE';
+    tradeModeEl.className = 'trade-mode live';
+} else {
+    tradeModeEl.innerHTML = '📝 PAPER';
+    tradeModeEl.className = 'trade-mode paper';
+}
+// BTC trend
+if (d.btc_trend) {
+updateBTCtrend(d.btc_trend);
+}
+} catch(e) {}
+}
+// BTC TREND - добавлено из первого файла
+function updateBTCtrend(trendData) {
+if (!trendData) return;
+const btcTrendEl = document.getElementById('btc-trend');
+let trendText = '';
+let trendClass = '';
+switch(trendData.trend) {
+case 'bullish':
+trendText = `📈 BTC: Бычий (${trendData.change_24h?.toFixed(1) || 0}%)`;
+trendClass = 'btc-bullish';
+break;
+case 'bearish':
+trendText = `📉 BTC: Медвежий (${trendData.change_24h?.toFixed(1) || 0}%)`;
+trendClass = 'btc-bearish';
+break;
+default:
+trendText = `⚖️ BTC: Нейтральный (${trendData.change_24h?.toFixed(1) || 0}%)`;
+trendClass = 'btc-neutral';
+}
+btcTrendEl.textContent = trendText;
+btcTrendEl.className = `btc-trend ${trendClass}`;
+}
+async function updatePortfolio() {
+try {
+const r = await fetch('/api/portfolio');
+const d = await r.json();
+// Обновляем заголовок
+document.getElementById('balance-value').textContent = `$${(d.equity || 0).toFixed(2)}`;
+document.getElementById('win-rate-value').textContent = `${(d.win_rate || 0).toFixed(0)}%`;
+document.getElementById('open-positions-value').textContent = d.open_positions_count || 0;
+// Daily PnL
+const dpEl = document.getElementById('daily-pnl-value');
+if (dpEl) {
+const dp = d.daily_pnl || 0;
+dpEl.textContent = (dp >= 0 ? '+$' : '-$') + Math.abs(dp).toFixed(1);
+dpEl.style.color = dp >= 0 ? 'var(--green)' : 'var(--red)';
+if (d.daily_loss_stop) dpEl.style.color = 'var(--orange)';
+}
+const eqEl = document.getElementById('sEquity');
+if (eqEl) eqEl.textContent = '$' + Math.round(d.equity || 0).toLocaleString();
+const totalPnl = document.getElementById('sTotalPnl');
+if (totalPnl) {
+totalPnl.textContent = (d.total_pnl >= 0 ? '+$' : '-$') + Math.abs(d.total_pnl || 0).toFixed(0);
+totalPnl.className = 'stat-value ' + (d.total_pnl >= 0 ? 'pos' : 'neg');
+}
+const dailyPnl = document.getElementById('sDailyPnl');
+if (dailyPnl) {
+dailyPnl.textContent = (d.daily_pnl >= 0 ? '+$' : '-$') + Math.abs(d.daily_pnl || 0).toFixed(0);
+dailyPnl.className = 'stat-value ' + (d.daily_pnl >= 0 ? 'pos' : 'neg');
+}
+const unrealPnl = document.getElementById('sUnreal');
+if (unrealPnl) {
+unrealPnl.textContent = (d.unrealized_pnl >= 0 ? '+$' : '-$') + Math.abs(d.unrealized_pnl || 0).toFixed(0);
+unrealPnl.className = 'stat-value ' + (d.unrealized_pnl >= 0 ? 'pos' : 'neg');
+}
+const wrEl = document.getElementById('sWinRate');
+if (wrEl) wrEl.textContent = (d.win_rate || 0).toFixed(0) + '%';
+const posEl = document.getElementById('sPositions');
+if (posEl) posEl.textContent = (d.open_positions_count || 0) + '/' + (d.max_positions || 5);
+} catch(e) { console.error('updatePortfolio error:', e); }
+}
+let _positionsUpdateInProgress = false;
+async function updatePositions() {
+if (_positionsUpdateInProgress) return;
+_positionsUpdateInProgress = true;
+try {
+const limitEl = document.getElementById('historyLimit');
+const limit = limitEl ? limitEl.value : 50;
+const r = await fetch(`/api/positions?limit=${limit}`);
+const d = await r.json();
+openPositions = d.open || [];
+// Pair buttons
+const btns = document.getElementById('pairButtons');
+const defaults = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'];
+const openSyms = openPositions.map(p => (p.symbol || '').replace(':USDT', '').replace('/USDT', ''));
+const allPairs = [...new Set([...defaults, ...openPositions.map(p => (p.symbol || '').replace(':USDT', ''))])];
+if (btns) {
+btns.innerHTML = allPairs.map(s => {
+const cleanS = s.replace(':USDT', '');
+const isActive = cleanS.replace('/USDT', '') === currentSymbol.replace(':USDT', '').replace('/USDT', '');
+const hasPos = openSyms.includes(cleanS.replace('/USDT', ''));
+const name = cleanS.replace('/USDT', '');
+return `<button class="pair-btn ${isActive ? 'active' : ''} ${hasPos ? 'has-position' : ''}"
+data-symbol="${cleanS}" onclick="selectPair('${cleanS}')">${name}</button>`;
+}).join('');
+}
+// Positions table
+const posTable = document.getElementById('posTable');
+if (posTable) {
+if (openPositions.length > 0) {
+posTable.innerHTML = openPositions.map(p => {
+const pnl = p.pnl_usdt || 0;
+const partialPnl = p.partial_tp_pnl || 0;
+const totalPnl = pnl + partialPnl;
+const partialDone = p.partial_tp_done || false;
+const name = (p.symbol || '').replace('/USDT:USDT', '').replace('/USDT', '').replace(':USDT', '');
+const trailInfo = p.trailing_info || {};
+let trailIcon = trailInfo.activated ? '🚀' : (trailInfo.enabled ? '⏳' : '');
+let partialIcon = partialDone ? '💰' : '';
+const side = p.side || 'SHORT';
+return `<tr oncontextmenu="showContextMenu(event, '${p.id}', '${p.symbol}')">
+<td><b>${name}</b>${partialIcon}</td>
+<td><span class="${side === 'SHORT' ? 'side-short' : 'side-long'}">${side}</span></td>
+<td>${fmtPrice(p.entry_price || 0)}</td>
+<td>${fmtPrice(p.current_price || 0)}</td>
+<td class="${totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg'}" title="Текущий: $${pnl.toFixed(2)}, Partial: $${partialPnl.toFixed(2)}">${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}</td>
+<td style="font-size:0.6rem">
+<span style="color:var(--red)">SL:${fmtPrice(p.stop_loss || 0)}${trailIcon}</span><br>
+<span style="color:var(--green)">TP:${fmtPrice(p.take_profit_1 || 0)}</span>
+</td>
+<td>
+<button class="btn btn-sm" style="background:var(--cyan);color:#000;padding:2px 4px;" onclick="askAiAboutPosition('${p.id}', '${name}')" title="Спросить AI">🤖</button>
+<button class="btn btn-sm btn-danger" style="padding:2px 4px;" onclick="closePos('${p.id}')">✕</button>
+</td>
+</tr>`;
+}).join('');
+} else {
+posTable.innerHTML = '<tr><td colspan="7" class="empty">Нет открытых позиций</td></tr>';
+}
+}
+// History table - ОБНОВЛЕНО для отображения направления + ЧС + partial TP
+const histTable = document.getElementById('histTable');
+const closed = d.closed || [];
+if (histTable) {
+if (closed.length > 0) {
+histTable.innerHTML = closed.map(p => {
+const pnl = p.pnl_usdt || 0;
+const partialPnl = p.partial_tp_pnl || 0;
+const name = (p.symbol || '').replace('/USDT:USDT', '').replace('/USDT', '').replace(':USDT', '');
+const fullSymbol = p.symbol || '';
+const reason = p.close_reason || p.status || '';
+const side = p.side || 'SHORT';
+let reasonIcon = reason.includes('TRAILING') ? ' 🚀' : '';
+let partialIcon = partialPnl > 0 ? ' 💰' : '';
+let pnlTitle = partialPnl > 0 ? `Partial: $${partialPnl.toFixed(2)}, Final: $${(pnl - partialPnl).toFixed(2)}` : '';
+return `<tr oncontextmenu="showHistoryContextMenu(event, '${fullSymbol}', '${name}')">
+<td>${name}${partialIcon}</td>
+<td><span class="${side === 'SHORT' ? 'side-short' : 'side-long'}" style="font-size:0.6rem;">${side}</span></td>
+<td class="${pnl >= 0 ? 'pnl-pos' : 'pnl-neg'}" title="${pnlTitle}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
+<td>${reason}${reasonIcon}</td>
+<td>${(p.closed_at || '').slice(11, 19) || ''}</td>
+</tr>`;
+}).join('');
+} else {
+histTable.innerHTML = '<tr><td colspan="5" class="empty">Нет истории</td></tr>';
+}
+}
+// Обновляем UI позиций — передаём уже загруженные данные, без повторного fetch
+updatePositionsUI(d);
+} catch(e) { console.error('updatePositions error:', e); }
+finally { _positionsUpdateInProgress = false; }
+}
+// UPDATE POSITIONS UI - принимает данные напрямую или делает fetch если данных нет
+let _positionsGridHash = '';
+async function updatePositionsUI(preloadedData) {
+try {
+let data;
+if (preloadedData) {
+data = preloadedData;
+} else {
+const r = await fetch('/api/positions');
+data = await r.json();
+}
+const positionsData = data.open || [];
+const positionsGrid = document.getElementById('positions-grid');
+if (!positionsGrid) return;
+if (!positionsData || positionsData.length === 0) {
+if (_positionsGridHash !== 'empty') { positionsGrid.innerHTML = '<div class="empty">Нет открытых позиций</div>'; _positionsGridHash = 'empty'; }
+return;
+}
+// Пропускаем полный ре-рендер если данные не изменились
+const newHash = positionsData.map(p => `${p.id}|${(p.current_price||0).toFixed(6)}|${(p.pnl_usdt||0).toFixed(4)}|${p.stop_loss||0}|${p.trail_activated||false}`).join(';');
+if (newHash === _positionsGridHash) return;
+_positionsGridHash = newHash;
+positionsGrid.innerHTML = '';
+positionsData.forEach(pos => {
+// === ИСПРАВЛЕНИЕ: учитываем partial_tp_pnl ===
+const partialPnl = pos.partial_tp_pnl || 0;
+const partialDone = pos.partial_tp_done || false;
+let pnlPercent, isProfit;
+if (pos.side === 'SHORT') {
+pnlPercent = ((pos.entry_price - pos.current_price) / pos.entry_price) * 100;
+isProfit = pos.current_price < pos.entry_price;
+} else {
+pnlPercent = ((pos.current_price - pos.entry_price) / pos.entry_price) * 100;
+isProfit = pos.current_price > pos.entry_price;
+}
+// Добавляем partial к общему PnL
+const totalPnlUsdt = (pos.pnl_usdt || 0) + partialPnl;
+// === ИСПРАВЛЕНИЕ КОНЕЦ ===
+const pnlClass = isProfit ? 'profit-positive' : 'profit-negative';
+const cardClass = pos.side === 'LONG' ? 'long' : '';
+const partialBadge = partialDone ? '<span style="color:var(--yellow);font-size:0.6rem;"> 💰 Partial</span>' : '';
+const positionCard = document.createElement('div');
+positionCard.className = `position-card ${cardClass}`;
+// Создаем безопасный элемент для AI анализа
+const reasonEl = document.createElement('div');
+reasonEl.className = 'position-reason';
+reasonEl.innerHTML = `<span style="color: var(--text3);">🤖 </span>`;
+const aiReasonText = document.createElement('span');
+aiReasonText.textContent = pos.ai_reason || 'Анализ AI';
+reasonEl.appendChild(aiReasonText);
+positionCard.innerHTML = `
+<div class="position-header">
+<div class="position-symbol">
+<span class="${pos.side === 'SHORT' ? 'side-short' : 'side-long'}">${pos.side}</span>
+${(pos.symbol || '').replace('/USDT:USDT', '').replace('/USDT', '')}${partialBadge}
+</div>
+<div class="position-id">${pos.id || ''}</div>
+</div>
+<div class="position-stats">
+<div class="stat-item">
+<div class="label">Текущая цена</div>
+<div class="value">$${pos.current_price?.toFixed(6) || '0.000000'}</div>
+</div>
+<div class="stat-item">
+<div class="label">Цена входа</div>
+<div class="value">$${pos.entry_price?.toFixed(6) || '0.000000'}</div>
+</div>
+<div class="stat-item">
+<div class="label">PnL ${partialDone ? '(+partial)' : ''}</div>
+<div class="value ${pnlClass}" title="$${totalPnlUsdt.toFixed(2)} USDT">${pnlPercent.toFixed(2)}%</div>
+</div>
+<div class="stat-item">
+<div class="label">Уверенность</div>
+<div class="value">${pos.ai_confidence || 0}%</div>
+<div class="confidence-bar">
+<div class="confidence-fill" style="width: ${Math.min(pos.ai_confidence || 0, 100)}%"></div>
+</div>
+</div>
+</div>
+<div class="position-levels">
+<div class="level-item sl">
+<span class="label">Stop Loss</span>
+$${pos.stop_loss?.toFixed(6) || '0.000000'}
+</div>
+<div class="level-item tp">
+<span class="label">Take Profit 1</span>
+$${pos.take_profit_1?.toFixed(6) || '0.000000'}
+</div>
+<div class="level-item entry">
+<span class="label">Take Profit 2</span>
+$${pos.take_profit_2 ? pos.take_profit_2.toFixed(6) : '-'}
+</div>
+</div>
+<div class="position-footer">
+<span>Открыто: ${pos.opened_at || ''}</span>
+<span>ATR: ${pos.atr_percent ? pos.atr_percent.toFixed(2) : '0.00'}%</span>
+</div>
+`;
+positionCard.appendChild(reasonEl);
+positionsGrid.appendChild(positionCard);
+});
+// Обновляем статистику
+updateStatistics();
+} catch(e) { console.error('updatePositionsUI error:', e); }
+}
+// UPDATE STATISTICS - добавлено из первого файла
+async function updateStatistics() {
+try {
+const r = await fetch('/api/analytics/statistics');
+const stats = await r.json();
+if (!stats) return;
+// Обновляем статистику AI
+document.getElementById('ai-win-rate').textContent = `${(stats.general?.win_rate || 0).toFixed(0)}%`;
+document.getElementById('total-pnl').textContent = `${(stats.general?.total_pnl || 0) >= 0 ? '+' : ''}$${Math.abs(stats.general?.total_pnl || 0).toFixed(2)}`;
+document.getElementById('avg-profit').textContent = `$${(stats.general?.avg_win || 0).toFixed(2)}`;
+document.getElementById('avg-loss').textContent = `$${(Math.abs(stats.general?.avg_loss) || 0).toFixed(2)}`;
+// Обновляем статистику по направлениям
+if (stats.symbol && stats.symbol.length > 0) {
+let shortCount = 0;
+let longCount = 0;
+stats.symbol.forEach(s => {
+if (s.symbol.startsWith('SHORT')) shortCount += s.total;
+if (s.symbol.startsWith('LONG')) longCount += s.total;
+});
+document.getElementById('short-count').textContent = shortCount;
+document.getElementById('long-count').textContent = longCount;
+}
+// Обновляем статистику по провайдерам
+// Обновляем статистику по провайдерам
+if (stats.by_ai_provider) {
+const providers = stats.by_ai_provider;
+document.getElementById('deepseek-stats').textContent =
+`${providers.deepseek?.wins || 0}/${providers.deepseek?.total || 0} (${(providers.deepseek?.win_rate || 0).toFixed(0)}%)`;
+document.getElementById('groq-stats').textContent =
+`${providers.groq?.wins || 0}/${providers.groq?.total || 0} (${(providers.groq?.win_rate || 0).toFixed(0)}%)`;
+document.getElementById('mock-stats').textContent =
+`${providers.mock?.wins || 0}/${providers.mock?.total || 0} (${(providers.mock?.win_rate || 0).toFixed(0)}%)`;
+}
+} catch(e) { console.error('updateStatistics error:', e); }
+}
+async function updateLogs() {
+try {
+const r = await fetch('/api/logs?limit=50');
+const logs = await r.json();
+const el = document.getElementById('logList');
+if (el && logs && logs.length > 0) {
+// Сохраняем логи глобально для копирования
+window.logsData = logs;
+el.innerHTML = logs.map((l, idx) => {
+const msg = l.message || '';
+// Показываем кнопку копирования для важных логов
+const showCopy = ['trade_open', 'trade_close', 'analysis', 'signal'].includes(l.type) && msg.length > 20;
+const copyBtn = showCopy ?
+`<button class="btn-copy" onclick="copyLog(${idx})" title="Копировать анализ">📋</button>` : '';
+return `<div class="log-entry ${l.type || 'info'}">
+<div class="log-time">${l.timestamp || ''} ${copyBtn}</div>
+<div class="log-msg">${msg}</div>
+</div>`;
+}).join('');
+} else if (el) {
+el.innerHTML = '<div class="empty">Ожидание логов...</div>';
+}
+} catch(e) { console.error('updateLogs error:', e); }
+}
+function clearLogs() {
+if (!confirm('Очистить все логи?')) return;
+document.getElementById('logList').innerHTML = '<div class="empty">Логи очищены</div>';
+}
+// Глобальная функция копирования лога
+function copyLog(idx) {
+if (!window.logsData || !window.logsData[idx]) {
+toast('❌', 'Нет данных', 'error');
+return;
+}
+const text = window.logsData[idx].message || '';
+// Пробуем современный API
+if (navigator.clipboard && window.isSecureContext) {
+navigator.clipboard.writeText(text)
+.then(() => toast('📋', 'Скопировано!', 'success'))
+.catch(() => copyFallback(text));
+} else {
+copyFallback(text);
+}
+}
+function copyFallback(text) {
+const textarea = document.createElement('textarea');
+textarea.value = text;
+textarea.style.cssText = 'position:fixed;left:-9999px;top:0;';
+document.body.appendChild(textarea);
+textarea.focus();
+textarea.select();
+try {
+document.execCommand('copy');
+toast('📋', 'Скопировано!', 'success');
+} catch(e) {
+toast('❌', 'Ошибка копирования', 'error');
+console.error('Copy error:', e);
+}
+document.body.removeChild(textarea);
+}
+// CONTEXT MENU
+function showContextMenu(e, posId, symbol) {
+e.preventDefault();
+contextPosition = {id: posId, symbol: symbol};
+const menu = document.getElementById('contextMenu');
+menu.style.left = e.pageX + 'px';
+menu.style.top = e.pageY + 'px';
+menu.classList.add('active');
+}
+document.addEventListener('click', () => {
+document.getElementById('contextMenu').classList.remove('active');
+document.getElementById('historyContextMenu').classList.remove('active');
+});
+// History context menu
+let historyContextSymbol = null;
+function showHistoryContextMenu(e, fullSymbol, name) {
+e.preventDefault();
+historyContextSymbol = fullSymbol;
+const menu = document.getElementById('historyContextMenu');
+menu.style.left = e.pageX + 'px';
+menu.style.top = e.pageY + 'px';
+menu.classList.add('active');
+}
+function historyShowChart() {
+if (historyContextSymbol) selectPair(historyContextSymbol);
+document.getElementById('historyContextMenu').classList.remove('active');
+}
+async function historyAddBlacklist() {
+if (historyContextSymbol) {
+let normalizedSymbol = historyContextSymbol;
+if (!normalizedSymbol.includes(':USDT') && normalizedSymbol.includes('/USDT')) {
+normalizedSymbol = normalizedSymbol + ':USDT';
+}
+await fetch('/api/blacklist/add', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({symbol: normalizedSymbol, reason: 'Добавлено из истории'})
+});
+toast('⚫ ЧС', `${historyContextSymbol} добавлено`, 'success');
+loadBlacklist();
+}
+document.getElementById('historyContextMenu').classList.remove('active');
+}
+function contextShowChart() {
+if (contextPosition) selectPair(contextPosition.symbol);
+}
+async function contextAddBlacklist() {
+if (contextPosition) {
+// Нормализуем символ перед добавлением в ЧС
+let normalizedSymbol = contextPosition.symbol;
+if (normalizedSymbol.endsWith('/USDT:USDT')) {
+normalizedSymbol = normalizedSymbol.replace('/USDT:USDT', '') + '/USDT:USDT';
+} else if (normalizedSymbol.endsWith('/USDT')) {
+normalizedSymbol = normalizedSymbol + ':USDT';
+} else if (!normalizedSymbol.includes(':USDT') && normalizedSymbol.includes('/USDT')) {
+normalizedSymbol = normalizedSymbol + ':USDT';
+}
+await fetch('/api/blacklist/add', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({symbol: normalizedSymbol, reason: 'Добавлено из контекстного меню'})
+});
+toast('⚫ ЧС', 'Добавлено', 'success');
+loadBlacklist();
+}
+}
+function contextEditSL() {
+if (contextPosition) {
+const newSL = prompt('Новый Stop Loss:');
+if (newSL) {
+fetch(`/api/update_sl/${contextPosition.id}`, {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({stop_loss: parseFloat(newSL)})
+}).then(() => { toast('SL', 'Обновлен', 'success'); updatePositions(); });
+}
+}
+}
+function contextEditTP() {
+if (contextPosition) {
+const newTP = prompt('Новый Take Profit:');
+if (newTP) {
+fetch(`/api/update_tp/${contextPosition.id}`, {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({take_profit: parseFloat(newTP)})
+}).then(() => { toast('TP', 'Обновлен', 'success'); updatePositions(); });
+}
+}
+}
+function contextClose() {
+if (contextPosition) closePos(contextPosition.id);
+}
+// CHART
+function initChart() {
+if (chartInitialized) return;
+const el = document.getElementById('chart');
+if (!el) { console.warn('Chart element not found'); return; }
+try {
+chart = LightweightCharts.createChart(el, {
+width: el.clientWidth, height: 400,
+layout: { background: { color: '#0d1117' }, textColor: '#94a3b8' },
+grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
+rightPriceScale: { borderColor: '#2d3748', autoScale: true, scaleMargins: { top: 0.1, bottom: 0.2 } },
+timeScale: { borderColor: '#2d3748', timeVisible: true, secondsVisible: false, rightOffset: 5 },
+crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+});
+series = chart.addCandlestickSeries({
+upColor: '#00ff88', downColor: '#ef4444',
+borderUpColor: '#00ff88', borderDownColor: '#ef4444',
+wickUpColor: '#00ff88', wickDownColor: '#ef4444'
+});
+el.addEventListener('dblclick', () => { isUserScrolling = false; chart.timeScale().fitContent(); });
+window.addEventListener('resize', () => { if (chart) chart.applyOptions({ width: el.clientWidth }); });
+chartInitialized = true;
+console.log('Chart initialized');
+loadChart();
+} catch (e) { console.error('initChart error:', e); setTimeout(initChart, 1000); }
+}
+let _chartAbortController = null;
+let _chartDebounceTimer = null;
+async function loadChart() {
+if (!chart || !series) { initChart(); return; }
+// Отменяем предыдущий запрос если ещё не завершился
+if (_chartAbortController) { _chartAbortController.abort(); }
+_chartAbortController = new AbortController();
+const myController = _chartAbortController;
+const tfEl = document.getElementById('chartTf');
+const tf = tfEl ? tfEl.value : '15m';
+try {
+const apiSymbol = currentSymbol.includes('/USDT') ? currentSymbol : currentSymbol + '/USDT';
+const response = await fetch(`/api/ohlcv/${encodeURIComponent(apiSymbol)}?tf=${tf}&limit=100`, { signal: myController.signal });
+const data = await response.json();
+if (!data || !Array.isArray(data) || data.length === 0) {
+console.warn('[CHART] No data for', apiSymbol);
+return;
+}
+console.log('[CHART] Received', data.length, 'candles');
+// Преобразуем данные с валидацией
+let rawData = data.filter(x => x && x.length >= 5).map(x => ({
+time: Math.floor(x[0] / 1000),
+open: parseFloat(x[1]) || 0,
+high: parseFloat(x[2]) || 0,
+low: parseFloat(x[3]) || 0,
+close: parseFloat(x[4]) || 0
+})).filter(x => x.open > 0 && x.close > 0);
+// Фикс OHLC: high должен быть >= open/close, low <= open/close
+rawData.forEach(c => {
+    c.high = Math.max(c.high, c.open, c.close);
+    c.low = Math.min(c.low, c.open, c.close);
+    if (c.low <= 0) c.low = Math.min(c.open, c.close);
+});
+// Сортировка по времени + дедупликация
+rawData.sort((a, b) => a.time - b.time);
+const seen = new Set();
+let uniqueData = rawData.filter(c => {
+    if (seen.has(c.time)) return false;
+    seen.add(c.time);
+    return true;
+});
+// Фильтрация outlier-свечей (листинг: цена в 3x+ от текущей)
+if (uniqueData.length > 10) {
+    const lastPrice = uniqueData[uniqueData.length - 1].close;
+    if (lastPrice > 0) {
+        const filtered = uniqueData.filter(c => {
+            return c.high < lastPrice * 3 && c.low > lastPrice * 0.2;
+        });
+        if (filtered.length >= 5) {
+            uniqueData = filtered;
+        }
+    }
+}
+chartData = uniqueData;
+if (chartData.length === 0) {
+console.warn('[CHART] No valid candles after filtering');
+return;
+}
+// Детекция плоского графика (новая/неликвидная монета)
+const _prices = chartData.map(c => c.close);
+const _priceSpread = (Math.max(..._prices) - Math.min(..._prices)) / Math.min(..._prices);
+const _existWarn = document.getElementById('chartFlatWarning');
+if (_priceSpread < 0.001 && chartData.length < 20) {
+if (!_existWarn) {
+const _w = document.createElement('div');
+_w.id = 'chartFlatWarning';
+_w.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(245,158,11,0.9);color:#000;padding:3px 12px;border-radius:4px;font-size:0.7rem;z-index:10;pointer-events:none;white-space:nowrap;';
+_w.textContent = '⚠️ Мало данных — новая или неликвидная монета';
+(document.getElementById('chartContainer') || document.querySelector('.chart-wrap'))?.appendChild(_w);
+}
+} else { if (_existWarn) _existWarn.remove(); }
+// Определяем precision для мелких монет
+const lastClose = chartData[chartData.length - 1].close;
+let minMove = 0.01;
+let precision = 2;
+if (lastClose < 0.001) { minMove = 0.00000001; precision = 8; }
+else if (lastClose < 0.01) { minMove = 0.0000001; precision = 7; }
+else if (lastClose < 0.1) { minMove = 0.000001; precision = 6; }
+else if (lastClose < 1) { minMove = 0.00001; precision = 5; }
+else if (lastClose < 10) { minMove = 0.0001; precision = 4; }
+else if (lastClose < 1000) { minMove = 0.01; precision = 2; }
+// Обновляем серию с правильным priceFormat
+series.applyOptions({
+    priceFormat: { type: 'price', precision: precision, minMove: minMove }
+});
+console.log('[CHART] Valid candles:', chartData.length, 'Price:', lastClose.toFixed(precision), 'precision:', precision);
+// Передаём данные графику через requestAnimationFrame — не блокируем UI
+requestAnimationFrame(() => {
+    series.setData(chartData);
+    if (!isUserScrolling) chart.timeScale().fitContent();
+    setTimeout(drawPositionLevels, 50);
+});
+} catch (e) {
+if (e.name === 'AbortError') return; // запрос отменён новым выбором пары — не ошибка
+console.error('[CHART] Ошибка:', e);
+}
+}
+// DRAW POSITION LEVELS - с валидацией диапазона цен
+function drawPositionLevels() {
+if (!series || !chartData || chartData.length === 0) return;
+levelLines.forEach(l => { try { series.removePriceLine(l); } catch(e) {} });
+levelLines = [];
+
+// Диапазон цен свечей
+const lows = chartData.map(c => c.low).filter(p => p > 0);
+const highs = chartData.map(c => c.high).filter(p => p > 0);
+if (lows.length === 0) return;
+const minPrice = Math.min(...lows);
+const maxPrice = Math.max(...highs);
+const range = maxPrice - minPrice || maxPrice * 0.05;
+// Уровни допустимы только ±50% от видимого диапазона
+const allowedMin = Math.max(0, minPrice - range * 0.5);
+const allowedMax = maxPrice + range * 0.5;
+
+const lastClose = chartData[chartData.length - 1].close;
+const dp = lastClose < 0.01 ? 6 : lastClose < 1 ? 4 : lastClose < 100 ? 3 : 2;
+
+function isOk(price) { return price > 0 && price >= allowedMin && price <= allowedMax; }
+
+const relevant = openPositions.filter(p => p.symbol && currentSymbol &&
+p.symbol.includes(currentSymbol.replace('/USDT', '')));
+relevant.forEach(pos => {
+const side = pos.side || 'SHORT';
+const cE = side === 'SHORT' ? '#f59e0b' : '#00ff88';
+if (pos.entry_price && isOk(pos.entry_price))
+  levelLines.push(series.createPriceLine({ price: pos.entry_price, color: cE, lineWidth: 2, title: `${side} Entry: ${pos.entry_price.toFixed(dp)}` }));
+if (pos.stop_loss && isOk(pos.stop_loss))
+  levelLines.push(series.createPriceLine({ price: pos.stop_loss, color: '#ef4444', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: `${side} SL: ${pos.stop_loss.toFixed(dp)}` }));
+if (pos.take_profit_1 && isOk(pos.take_profit_1))
+  levelLines.push(series.createPriceLine({ price: pos.take_profit_1, color: '#00ff88', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: `${side} TP1: ${pos.take_profit_1.toFixed(dp)}` }));
+if (pos.take_profit_2 && pos.take_profit_2 !== pos.take_profit_1 && isOk(pos.take_profit_2))
+  levelLines.push(series.createPriceLine({ price: pos.take_profit_2, color: '#00ff88', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, title: `${side} TP2: ${pos.take_profit_2.toFixed(dp)}` }));
+});
+}
+function selectPair(symbol) {
+let cleanSymbol = symbol.replace(':USDT', '').replace('/USDT', '');
+currentSymbol = cleanSymbol + '/USDT';
+// Обновляем кнопки сразу — мгновенная визуальная реакция без ожидания запроса
+document.querySelectorAll('.pair-btn').forEach(b => {
+    const isThis = b.dataset.symbol.replace(':USDT', '').replace('/USDT', '') === cleanSymbol;
+    b.classList.toggle('active', isThis);
+});
+isUserScrolling = false;
+// Дебаунс 150мс — если кликнули несколько раз подряд, грузим только последнюю пару
+clearTimeout(_chartDebounceTimer);
+_chartDebounceTimer = setTimeout(loadChart, 150);
+}
+// ANALYTICS
+async function loadAnalytics() {
+try {
+const r = await fetch('/api/analytics/statistics');
+const d = await r.json();
+const g = d.general || {};
+document.getElementById('anTotalTrades').textContent = g.total_trades || 0;
+document.getElementById('anWinRate').textContent = (g.win_rate || 0).toFixed(0) + '%';
+document.getElementById('anAvgWin').textContent = '$' + (g.avg_win || 0).toFixed(2);
+document.getElementById('anAvgLoss').textContent = '$' + Math.abs(g.avg_loss || 0).toFixed(2);
+// Hourly
+const hourly = d.hourly || [];
+const hourlyEl = document.getElementById('hourlyStats');
+if (hourly.length > 0) {
+hourlyEl.innerHTML = hourly.map(h => {
+const wr = h.win_rate || 0;
+return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+<span style="width:50px;font-size:0.7rem;">${h.hour}:00</span>
+<div class="stat-bar" style="flex:1"><div class="stat-bar-fill ${wr < 50 ? 'low' : ''}" style="width:${wr}%"></div></div>
+<span style="width:60px;font-size:0.7rem;text-align:right;">${wr}% (${h.total})</span>
+</div>`;
+}).join('');
+}
+loadRecommendations();
+} catch(e) {}
+}
+async function loadRecommendations() {
+try {
+const r = await fetch('/api/analytics/recommendations');
+const d = await r.json();
+const el = document.getElementById('recommendationsList');
+if (d.recommendations && d.recommendations.length > 0) {
+el.innerHTML = d.recommendations.map(rec => `
+<div style="padding:12px;background:var(--bg4);border-radius:6px;margin-bottom:10px;border-left:3px solid var(--orange);">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+<span style="color:var(--orange);font-weight:600;">⚡ ${rec.parameter}: ${rec.current_value} → ${rec.suggested_value}</span>
+<div style="display:flex;gap:6px;">
+<button class="btn btn-sm btn-primary" onclick="applyRec(${rec.id})">✓</button>
+<button class="btn btn-sm btn-secondary" onclick="ignoreRec(${rec.id})">✗</button>
+</div>
+</div>
+<div style="font-size:0.75rem;color:var(--text2);">${rec.reasoning}</div>
+</div>
+`).join('');
+} else {
+el.innerHTML = '<div class="empty">Нет активных рекомендаций</div>';
+}
+} catch(e) {}
+}
+async function generateRecommendations() {
+toast('🔄', 'Генерация рекомендаций...', 'info');
+try {
+await fetch('/api/analytics/recommendations/generate', { method: 'POST' });
+loadRecommendations();
+} catch(e) {}
+}
+async function applyRec(id) {
+try {
+await fetch(`/api/analytics/recommendations/${id}/apply`, { method: 'POST' });
+toast('✅', 'Рекомендация применена', 'success');
+loadRecommendations();
+} catch(e) {}
+}
+async function ignoreRec(id) {
+try {
+await fetch(`/api/analytics/recommendations/${id}/ignore`, { method: 'POST' });
+loadRecommendations();
+} catch(e) {}
+}
+// POST-MORTEM
+async function loadPostMortems() {
+try {
+const r = await fetch('/api/post_mortems');
+const d = await r.json();
+const pending = d.pending || [];
+const badge = document.getElementById('pmBadge');
+const pendingBadge = document.getElementById('pmPendingBadge');
+if (pending.length > 0) {
+badge.textContent = pending.length;
+badge.style.display = 'inline';
+pendingBadge.textContent = `${pending.length} ожидает`;
+} else {
+badge.style.display = 'none';
+pendingBadge.textContent = '0 ожидает';
+}
+const el = document.getElementById('postMortemList');
+const all = d.all || [];
+if (all.length > 0) {
+el.innerHTML = all.map(pm => `
+<div class="post-mortem-card">
+<div class="post-mortem-header">
+<span class="post-mortem-title">📉 ${pm.symbol?.replace('/USDT:USDT', '') || 'Unknown'}</span>
+<span class="post-mortem-loss">-$${(pm.loss_amount || 0).toFixed(2)}</span>
+</div>
+<div class="post-mortem-analysis">${pm.analysis || ''}</div>
+${pm.user_action === 'PENDING' ? `
+<div class="post-mortem-actions">
+<button class="btn btn-sm btn-primary" onclick="applyPM(${pm.id})">✓ Применить рекомендации</button>
+<button class="btn btn-sm btn-secondary" onclick="dismissPM(${pm.id})">✗ Отклонить</button>
+</div>
+` : `<span class="badge badge-${pm.user_action === 'APPLIED' ? 'green' : 'orange'}">${pm.user_action}</span>`}
+</div>
+`).join('');
+} else {
+el.innerHTML = '<div class="empty">Нет пост-мортемов</div>';
+}
+} catch(e) {}
+}
+async function applyPM(id) {
+try {
+await fetch(`/api/post_mortems/${id}/apply`, { method: 'POST' });
+toast('✅', 'Рекомендации применены', 'success');
+loadPostMortems();
+} catch(e) {}
+}
+async function dismissPM(id) {
+try {
+await fetch(`/api/post_mortems/${id}/dismiss`, { method: 'POST' });
+loadPostMortems();
+} catch(e) {}
+}
+// BLACKLIST
+async function loadBlacklist() {
+try {
+const r = await fetch('/api/blacklist');
+const d = await r.json();
+blacklist = d.blacklist || [];
+const table = document.getElementById('blacklistTable');
+if (blacklist.length > 0) {
+table.innerHTML = blacklist.map(item => `
+<tr>
+<td><b>${item.symbol}</b></td>
+<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${item.reason || '-'}</td>
+<td>${(item.added_at || '').slice(0, 16)}</td>
+<td><button class="btn btn-sm btn-danger" onclick="removeBlacklist('${item.symbol}')" title="Удалить из ЧС">🗑️</button></td>
+</tr>
+`).join('');
+} else {
+table.innerHTML = '<tr><td colspan="4" class="empty">Черный список пуст</td></tr>';
+}
+} catch(e) {}
+}
+async function quickAddBlacklist() {
+let symbol = document.getElementById('quickAddSymbol').value.trim();
+const reason = document.getElementById('quickAddReason').value;
+if (!symbol) { toast('Ошибка', 'Введите символ', 'error'); return; }
+// Нормализуем символ перед отправкой
+if (symbol.endsWith('/USDT')) {
+symbol = symbol + ':USDT';
+} else if (!symbol.includes(':USDT') && symbol.includes('/USDT')) {
+symbol = symbol + ':USDT';
+}
+try {
+await fetch('/api/blacklist/add', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({symbol, reason})
+});
+document.getElementById('quickAddSymbol').value = '';
+toast('⚫ ЧС', 'Добавлено', 'success');
+loadBlacklist();
+updateStatus();
+} catch(e) {}
+}
+async function removeBlacklist(symbol) {
+if (!confirm(`Удалить ${symbol} из ЧС?`)) return;
+try {
+await fetch('/api/blacklist/remove', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({symbol})
+});
+toast('⚫ ЧС', 'Удалено', 'success');
+loadBlacklist();
+updateStatus();
+} catch(e) {}
+}
+async function clearBlacklist() {
+if (!confirm('Очистить весь черный список?')) return;
+try {
+await fetch('/api/blacklist/clear', { method: 'POST' });
+toast('⚫ ЧС', 'Очищено', 'success');
+loadBlacklist();
+updateStatus();
+} catch(e) {}
+}
+// AI
+async function loadAIStats() {
+try {
+const r = await fetch('/api/ai/status');
+const stats = await r.json();
+// DeepSeek status
+document.getElementById('dsStatus').textContent = stats.deepseek_connected ? 'Подключен' : 'Не настроен';
+document.getElementById('dsStatus').className = 'badge ' + (stats.deepseek_connected ? 'badge-green' : 'badge-orange');
+// Groq status
+document.getElementById('grStatus').textContent = stats.groq_connected ? 'Подключен' : 'Не настроен';
+document.getElementById('grStatus').className = 'badge ' + (stats.groq_connected ? 'badge-green' : 'badge-orange');
+// Показываем статистику и ошибки по провайдерам
+if (stats.providers) {
+// DeepSeek
+const ds = stats.providers.deepseek;
+if (ds) {
+document.getElementById('dsStats').textContent = `Запросов: ${ds.total_requests}, Успешных: ${ds.successful_requests}, Ошибок: ${ds.failed_requests}`;
+if (ds.last_error && ds.failed_requests > 0) {
+document.getElementById('dsError').textContent = '❌ ' + ds.last_error;
+document.getElementById('dsError').style.display = 'block';
+} else {
+document.getElementById('dsError').style.display = 'none';
+}
+}
+// Groq
+const gr = stats.providers.groq;
+if (gr) {
+document.getElementById('grStats').textContent = `Запросов: ${gr.total_requests}, Успешных: ${gr.successful_requests}, Ошибок: ${gr.failed_requests}`;
+if (gr.last_error && gr.failed_requests > 0) {
+document.getElementById('grError').textContent = '❌ ' + gr.last_error;
+document.getElementById('grError').style.display = 'block';
+} else {
+document.getElementById('grError').style.display = 'none';
+}
+}
+}
+// A/B Testing Statistics
+try {
+const abR = await fetch('/api/ai/ab_statistics');
+const abStats = await abR.json();
+const abEl = document.getElementById('abTestStats');
+if (abStats && (abStats.deepseek || abStats.groq)) {
+let abHtml = '';
+for (const [provider, data] of Object.entries(abStats)) {
+if (provider !== 'consensus_rate' && data && data.total > 0) {
+abHtml += `<div style="padding:10px;background:var(--bg4);border-radius:6px;margin-bottom:8px;">
+<div style="display:flex;justify-content:space-between;">
+<b>${provider.toUpperCase()}</b>
+<span class="${data.win_rate >= 50 ? 'pnl-pos' : 'pnl-neg'}">${data.win_rate?.toFixed(0) || 0}% WR</span>
+</div>
+<div style="font-size:0.7rem;color:var(--text3);">
+${data.total} сделок | Avg PnL: $${(data.avg_pnl || 0).toFixed(2)} | Время: ${(data.avg_response_time || 0).toFixed(1)}с
+</div>
+</div>`;
+}
+}
+if (abStats.consensus_rate !== undefined) {
+abHtml += `<div style="font-size:0.75rem;color:var(--text2);margin-top:8px;">
+📊 Консенсус: ${abStats.consensus_rate.toFixed(0)}% сделок с согласием обоих AI
+</div>`;
+}
+abEl.innerHTML = abHtml || '<div class="empty">Нет данных A/B тестирования</div>';
+} else {
+abEl.innerHTML = '<div class="empty">A/B тестирование не активно</div>';
+}
+} catch(e) { console.error('A/B stats error:', e); }
+// AI comparison
+const r2 = await fetch('/api/analytics/statistics');
+const analytics = await r2.json();
+const aiStats = analytics.by_ai_provider || {};
+const compEl = document.getElementById('aiComparison');
+let html = '';
+for (const [provider, data] of Object.entries(aiStats)) {
+if (data.total > 0) {
+html += `<div style="padding:10px;background:var(--bg4);border-radius:6px;margin-bottom:8px;">
+<div style="display:flex;justify-content:space-between;">
+<b>${provider.toUpperCase()}</b>
+<span class="${data.win_rate >= 50 ? 'pnl-pos' : 'pnl-neg'}">${data.win_rate?.toFixed(0) || 0}% WR</span>
+</div>
+<div style="font-size:0.7rem;color:var(--text3);">
+${data.total} сделок | PnL: $${(data.pnl || 0).toFixed(2)}
+</div>
+</div>`;
+}
+}
+compEl.innerHTML = html || '<div class="empty">Нет данных</div>';
+} catch(e) { console.error('loadAIStats error:', e); }
+}
+// ACTIONS
+async function togglePause() {
+await fetch('/api/scanner/pause', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({paused: !paused})
+});
+paused = !paused;
+updatePauseButtons();
+updateStatus();
+}
+function updatePauseButtons() {
+const btnStart = document.getElementById('btnStart');
+const btnPause = document.getElementById('btnPause');
+if (paused) {
+btnStart.style.display = 'inline-flex';
+btnPause.style.display = 'none';
+} else {
+btnStart.style.display = 'none';
+btnPause.style.display = 'inline-flex';
+}
+}
+async function forceScan() {
+const r = await fetch('/api/force_scan', { method: 'POST' });
+const d = await r.json();
+toast('Скан', d.success ? 'Запущен' : d.error, d.success ? 'info' : 'error');
+}
+async function closePos(id) {
+if (!confirm('Закрыть позицию?')) return;
+const r = await fetch(`/api/close_position/${id}`, { method: 'POST' });
+const d = await r.json();
+if (d.success) {
+beep(600);
+toast('Закрыто', `PnL: $${d.result.pnl.toFixed(2)}`, d.result.pnl >= 0 ? 'success' : 'error');
+updatePositions();
+updatePortfolio();
+}
+}
+// MANUAL TRADE - ОБНОВЛЕНО для поддержки LONG
+function updateManualDirection() {
+const direction = document.querySelector('input[name="direction"]:checked').value;
+const btn = document.getElementById('manualTradeBtn');
+if (direction === 'LONG') {
+btn.innerHTML = '🟢 ОТКРЫТЬ LONG';
+btn.className = 'btn btn-success';
+} else {
+btn.innerHTML = '🔴 ОТКРЫТЬ SHORT';
+btn.className = 'btn btn-danger';
+}
+}
+async function fetchPrice() {
+const sym = document.getElementById('mSymbol').value || 'BTC/USDT';
+try {
+const r = await fetch('/api/ticker/' + encodeURIComponent(sym));
+const d = await r.json();
+if (d.price) {
+const direction = document.querySelector('input[name="direction"]:checked').value;
+const price = d.price;
+document.getElementById('mEntry').value = price.toFixed(6);
+if (direction === 'SHORT') {
+// Для SHORT: SL > entry, TP < entry
+document.getElementById('mSL').value = (price * 1.025).toFixed(6);
+document.getElementById('mTP1').value = (price * 0.97).toFixed(6);
+} else {
+// Для LONG: SL < entry, TP > entry
+document.getElementById('mSL').value = (price * 0.975).toFixed(6);
+document.getElementById('mTP1').value = (price * 1.03).toFixed(6);
+}
+}
+} catch(e) { toast('Ошибка', 'Не удалось получить цену', 'error'); }
+}
+async function submitManual() {
+const direction = document.querySelector('input[name="direction"]:checked').value;
+let symbol = document.getElementById('mSymbol').value;
+const entry = parseFloat(document.getElementById('mEntry').value);
+const sl = parseFloat(document.getElementById('mSL').value);
+const tp1 = parseFloat(document.getElementById('mTP1').value);
+if (!symbol || isNaN(entry) || isNaN(sl) || isNaN(tp1)) {
+toast('Ошибка', 'Заполните все поля', 'error');
+return;
+}
+// Нормализуем символ
+if (symbol.endsWith('/USDT')) {
+symbol = symbol + ':USDT';
+} else if (!symbol.includes(':USDT') && symbol.includes('/USDT')) {
+symbol = symbol + ':USDT';
+}
+// Валидация в зависимости от направления
+if (direction === 'SHORT') {
+if (sl <= entry) { toast('Ошибка', 'SL должен быть > entry для SHORT', 'error'); return; }
+if (tp1 >= entry) { toast('Ошибка', 'TP должен быть < entry для SHORT', 'error'); return; }
+} else {
+if (sl >= entry) { toast('Ошибка', 'SL должен быть < entry для LONG', 'error'); return; }
+if (tp1 <= entry) { toast('Ошибка', 'TP должен быть > entry для LONG', 'error'); return; }
+}
+try {
+const r = await fetch('/api/manual_trade', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({
+symbol,
+side: direction,
+entry_price: entry,
+stop_loss: sl,
+take_profit_1: tp1
+})
+});
+const d = await r.json();
+if (d.success) {
+closeModal('manualModal');
+beep(1000);
+toast('Открыто', `${direction} ${symbol}`, 'success');
+updatePositions();
+updatePortfolio();
+} else {
+toast('Ошибка', d.error, 'error');
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+// SETTINGS
+async function loadSettings() {
+try {
+const r = await fetch('/api/settings');
+settings = await r.json();
+// Торговля
+document.getElementById('setBalance').value = settings.initial_balance || 10000;
+document.getElementById('setSize').value = settings.position_size || 500;
+document.getElementById('setLev').value = settings.leverage || 5;
+document.getElementById('setMaxPos').value = settings.max_positions || 5;
+document.getElementById('setSlPct').value = settings.stop_loss_pct || 5.0;
+document.getElementById('setTpPct').value = settings.take_profit_pct || 7.0;
+// Трейлинг
+document.getElementById('setTrailAct').value = settings.trailing_activation_pct || 2.0;
+document.getElementById('setTrailDist').value = settings.trailing_distance_pct || 1.0;
+document.getElementById('setTrailOn').checked = settings.trailing_enabled !== false;
+document.getElementById('setAdaptiveTrail').checked = settings.adaptive_trailing_enabled === true;
+// Сканер
+document.getElementById('setScan').value = settings.scan_interval || 300;
+document.getElementById('setConfidence').value = settings.confidence_threshold || 70;
+document.getElementById('setMaxAnalyze').value = settings.max_to_analyze || 15;
+document.getElementById('setMinChange').value = settings.min_change_filter || 3;
+// Защита и кулдауны
+document.getElementById('setCooldownLoss').value = settings.cooldown_after_loss_min ?? 5;
+document.getElementById('setSymbolCooldown').value = settings.symbol_cooldown_min ?? 30;
+document.getElementById('setMaxSymbolLosses').value = settings.max_symbol_losses_daily ?? 2;
+document.getElementById('setMaxDailyLoss').value = settings.max_daily_loss_pct ?? 15;
+// AI
+document.getElementById('setAiProvider').value = settings.ai_provider || 'mock';
+document.getElementById('setDeepseekKey').placeholder = settings.deepseek_api_key_masked || 'sk-...';
+document.getElementById('setGroqKey').placeholder = settings.groq_api_key_masked || 'gsk_...';
+// Telegram
+document.getElementById('setTgToken').placeholder = settings.telegram_bot_token_masked || '123456:ABC...';
+document.getElementById('setTgChat').value = settings.telegram_chat_id || '';
+// Комиссии
+document.getElementById('setCommissionRate').value = settings.commission_rate || 0.08;
+document.getElementById('setCommissionEnabled').checked = settings.commission_enabled !== false;
+// LIVE Binance
+document.getElementById('setBinanceKey').placeholder = settings.binance_api_key_masked || 'Введите API ключ...';
+document.getElementById('setBinanceSecret').placeholder = settings.binance_secret_key_masked || 'Введите Secret...';
+document.getElementById('setTestnet').checked = settings.binance_testnet === true;
+document.getElementById('setLiveEnabled').checked = settings.live_trading_enabled === true;
+document.getElementById('setLiveMaxPos').value = settings.live_max_position_usd || 100;
+document.getElementById('setLiveDailyLoss').value = settings.live_max_daily_loss_usd || 50;
+} catch(e) { console.error('loadSettings error:', e); }
+}
+
+function openSettings() { loadSettings(); document.getElementById('settingsModal').classList.add('active'); }
+function openManual() {
+document.getElementById('mSymbol').value = 'BTC/USDT';
+document.getElementById('mEntry').value = '';
+document.getElementById('mSL').value = '';
+document.getElementById('mTP1').value = '';
+updateManualDirection();
+document.getElementById('manualModal').classList.add('active');
+}
+function openReset() { document.getElementById('resetModal').classList.add('active'); }
+async function saveSettings() {
+const data = {
+// Торговля
+initial_balance: parseFloat(document.getElementById('setBalance').value) || 10000,
+position_size: parseFloat(document.getElementById('setSize').value) || 500,
+leverage: parseInt(document.getElementById('setLev').value) || 5,
+max_positions: parseInt(document.getElementById('setMaxPos').value) || 5,
+stop_loss_pct: parseFloat(document.getElementById('setSlPct').value) || 5.0,
+take_profit_pct: parseFloat(document.getElementById('setTpPct').value) || 7.0,
+// Трейлинг
+trailing_activation_pct: parseFloat(document.getElementById('setTrailAct').value) || 2.0,
+trailing_distance_pct: parseFloat(document.getElementById('setTrailDist').value) || 1.0,
+trailing_enabled: document.getElementById('setTrailOn').checked,
+adaptive_trailing_enabled: document.getElementById('setAdaptiveTrail').checked,
+// Сканер
+scan_interval: parseInt(document.getElementById('setScan').value) || 300,
+confidence_threshold: parseInt(document.getElementById('setConfidence').value) || 70,
+max_to_analyze: parseInt(document.getElementById('setMaxAnalyze').value) || 15,
+min_change_filter: parseFloat(document.getElementById('setMinChange').value) || 3,
+// Защита и кулдауны
+cooldown_after_loss_min: parseInt(document.getElementById('setCooldownLoss').value) || 0,
+symbol_cooldown_min: parseInt(document.getElementById('setSymbolCooldown').value) || 30,
+max_symbol_losses_daily: parseInt(document.getElementById('setMaxSymbolLosses').value) || 2,
+max_daily_loss_pct: parseFloat(document.getElementById('setMaxDailyLoss').value) || 15,
+// AI
+ai_provider: document.getElementById('setAiProvider').value || 'mock',
+// Telegram
+telegram_chat_id: document.getElementById('setTgChat').value,
+// Комиссии
+commission_rate: parseFloat(document.getElementById('setCommissionRate').value) || 0.08,
+commission_enabled: document.getElementById('setCommissionEnabled').checked,
+// LIVE Binance settings
+binance_testnet: document.getElementById('setTestnet').checked,
+live_trading_enabled: document.getElementById('setLiveEnabled').checked,
+live_max_position_usd: parseFloat(document.getElementById('setLiveMaxPos').value) || 100,
+live_max_daily_loss_usd: parseFloat(document.getElementById('setLiveDailyLoss').value) || 50
+};
+// API keys only if entered
+const dsKey = document.getElementById('setDeepseekKey').value.trim();
+const grKey = document.getElementById('setGroqKey').value.trim();
+const tgToken = document.getElementById('setTgToken').value.trim();
+const bnKey = document.getElementById('setBinanceKey').value.trim();
+const bnSecret = document.getElementById('setBinanceSecret').value.trim();
+if (dsKey && dsKey.startsWith('sk-')) data.deepseek_api_key = dsKey;
+if (grKey && grKey.startsWith('gsk_')) data.groq_api_key = grKey;
+if (tgToken && tgToken.includes(':')) data.telegram_bot_token = tgToken;
+if (bnKey && bnKey.length > 10) data.binance_api_key = bnKey;
+if (bnSecret && bnSecret.length > 10) data.binance_secret_key = bnSecret;
+try {
+const r = await fetch('/api/settings', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify(data)
+});
+if (r.ok) {
+closeModal('settingsModal');
+toast('Настройки', 'Сохранено!', 'success');
+updateStatus();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+// LIVE BINANCE FUNCTIONS
+async function testBinanceConnection() {
+const resultEl = document.getElementById('binanceTestResult');
+resultEl.textContent = '⏳ Проверка...';
+resultEl.style.color = 'var(--text2)';
+try {
+const r = await fetch('/api/live/test');
+const data = await r.json();
+if (data.success) {
+const bal = data.info?.balance || data.balance || '?';
+resultEl.textContent = `✅ OK! Баланс: $${parseFloat(bal).toFixed(2)}`;
+resultEl.style.color = 'var(--green)';
+} else {
+resultEl.textContent = `❌ ${data.error || data.message || 'Ошибка подключения'}`;
+resultEl.style.color = 'var(--red)';
+}
+} catch(e) {
+resultEl.textContent = '❌ Ошибка: ' + e.message;
+resultEl.style.color = 'var(--red)';
+}
+}
+
+// EQUITY PROTECTION FUNCTIONS
+async function loadEquityInfo() {
+try {
+const r = await fetch('/api/equity');
+if (r.ok) {
+const eq = await r.json();
+document.getElementById('eqPeak').textContent = '$' + (eq.equity_peak || 0).toFixed(2);
+document.getElementById('eqActivation').textContent = '$' + (eq.activation_threshold || 0).toFixed(2);
+const threshold = eq.equity_peak * (1 - (eq.drawdown_pct || 30) / 100);
+document.getElementById('eqThreshold').textContent = '$' + threshold.toFixed(2);
+// Статус активации
+const statusEl = document.getElementById('eqStatus');
+if (eq.protection_triggered) {
+statusEl.textContent = '🛑 СРАБОТАЛА';
+statusEl.style.color = 'var(--red)';
+document.getElementById('equityInfo').style.background = 'var(--red-bg)';
+} else if (eq.is_active) {
+statusEl.textContent = '✅ Активна';
+statusEl.style.color = 'var(--green)';
+document.getElementById('equityInfo').style.background = 'var(--bg3)';
+} else {
+statusEl.textContent = '⏳ Ожидание (пик < порога)';
+statusEl.style.color = 'var(--warning)';
+document.getElementById('equityInfo').style.background = 'var(--bg3)';
+}
+}
+} catch(e) {}
+}
+async function resetEquityPeak() {
+if (!confirm('Сбросить пик эквити на текущее значение?')) return;
+try {
+const r = await fetch('/api/equity/reset', { method: 'POST' });
+if (r.ok) {
+const data = await r.json();
+toast('Equity', 'Пик сброшен на $' + (data.new_peak || 0).toFixed(2), 'success');
+loadEquityInfo();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+// ═══ CRYPTO AGENT FUNCTIONS ═══
+let agentEnabled = false;
+
+async function loadAgentStatus() {
+try {
+const r = await fetch('/api/agent/status');
+if (!r.ok) return;
+const data = await r.json();
+
+agentEnabled = data.enabled;
+const panel = document.getElementById('agentPanel');
+if (panel) panel.style.display = data.enabled ? 'block' : 'none';
+
+if (!data.enabled) return;
+
+// Режим работы агента (observe/recommend/auto)
+const workModeEl = document.getElementById('agentWorkMode');
+if (workModeEl) {
+const modeLabels = {'observe': '👁️ НАБЛЮДЕНИЕ', 'recommend': '💡 РЕКОМЕНДАЦИИ', 'auto': '🤖 AUTO'};
+const modeColors = {'observe': 'var(--text3)', 'recommend': 'var(--yellow)', 'auto': 'var(--green)'};
+workModeEl.textContent = modeLabels[data.mode] || 'AUTO';
+workModeEl.style.background = modeColors[data.mode] || 'var(--green)';
+workModeEl.style.color = data.mode === 'recommend' ? '#000' : '#fff';
+}
+
+// Статус рынка
+const statusEl = document.getElementById('agentStatus');
+if (data.market_mode === 'PAUSE') {
+statusEl.textContent = '⛔ ПАУЗА';
+statusEl.style.background = 'var(--red)';
+statusEl.style.color = 'white';
+} else if (data.market_mode === 'CAUTION') {
+statusEl.textContent = '⚠️ ОСТОРОЖНО';
+statusEl.style.background = 'var(--yellow)';
+statusEl.style.color = 'black';
+} else {
+statusEl.textContent = '✅ АКТИВЕН';
+statusEl.style.background = 'var(--green)';
+statusEl.style.color = 'white';
+}
+
+// Режим рынка
+const modeEl = document.getElementById('agentMode');
+modeEl.textContent = data.market_mode || 'NORMAL';
+if (data.market_mode === 'PAUSE') modeEl.style.color = 'var(--red)';
+else if (data.market_mode === 'CAUTION') modeEl.style.color = 'var(--yellow)';
+else modeEl.style.color = 'var(--green)';
+
+// BTC
+const btcEl = document.getElementById('agentBtc');
+btcEl.textContent = data.btc_trend || '-';
+if (data.btc_trend === 'bullish') btcEl.style.color = 'var(--green)';
+else if (data.btc_trend === 'bearish') btcEl.style.color = 'var(--red)';
+else btcEl.style.color = 'var(--text)';
+
+// Статистика
+document.getElementById('agentPositions').textContent = data.positions_tracked || 0;
+document.getElementById('agentCloses').textContent = data.ai_closes || 0;
+document.getElementById('agentHolds').textContent = data.ai_holds || 0;
+document.getElementById('agentSaved').textContent = '$' + (data.saved_usd || 0).toFixed(2);
+
+// Reasoning (ход мыслей)
+const reasonEl = document.getElementById('agentReasoning');
+if (data.reasoning) {
+reasonEl.innerHTML = '💭 <b>Последний анализ:</b> ' + data.reasoning;
+reasonEl.style.display = 'block';
+} else {
+reasonEl.style.display = 'none';
+}
+} catch(e) { console.error('Agent status error:', e); }
+}
+
+async function toggleAgent() {
+try {
+const r = await fetch('/api/agent/toggle', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({ enabled: !agentEnabled })
+});
+if (r.ok) {
+const data = await r.json();
+agentEnabled = data.enabled;
+toast('Agent', data.enabled ? '🤖 Включен' : '💤 Выключен', 'success');
+loadAgentStatus();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+async function forceAgentAnalysis() {
+try {
+toast('Agent', '🔄 Анализирую рынок...', 'info');
+const r = await fetch('/api/agent/analyze_market', { method: 'POST' });
+if (r.ok) {
+const data = await r.json();
+toast('Agent', `${data.mode}: ${data.reasoning?.substring(0, 50) || 'OK'}`, 'success');
+loadAgentStatus();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+async function forceCheckPositions() {
+try {
+toast('Agent', '🔍 Проверяю позиции...', 'info');
+const r = await fetch('/api/agent/check_positions', { method: 'POST' });
+if (r.ok) {
+const data = await r.json();
+toast('Agent', `Проверено: ${data.checked} позиций`, 'success');
+loadAgentStatus();
+updatePositions();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+async function showAgentMemory() {
+try {
+const r = await fetch('/api/agent/memory');
+if (!r.ok) return;
+const data = await r.json();
+
+let html = '<h3>🧠 Память о монетах</h3>';
+const entries = Object.entries(data);
+if (entries.length === 0) {
+html += '<p style="color: var(--text3);">Память пуста</p>';
+} else {
+html += '<table style="width:100%; font-size:0.8rem;">';
+html += '<tr><th>Монета</th><th>Сделок</th><th>WR%</th><th>PnL</th><th>Подряд</th><th>Блок</th></tr>';
+for (const [sym, info] of entries) {
+const color = info.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+const blocked = info.blocked ? '🚫' : '✅';
+html += `<tr>
+<td>${sym}</td>
+<td>${info.trades}</td>
+<td>${info.win_rate?.toFixed(0) || 0}%</td>
+<td style="color:${color}">$${info.pnl?.toFixed(2) || 0}</td>
+<td>${info.consecutive_losses || 0}</td>
+<td>${blocked}</td>
+</tr>`;
+}
+html += '</table>';
+}
+html += '<button class="btn btn-sm" style="margin-top:10px;" onclick="resetAgentMemory()">🗑️ Очистить</button>';
+
+const modal = document.createElement('div');
+modal.className = 'modal-bg';
+modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+modal.innerHTML = `<div style="background:var(--bg2);padding:20px;border-radius:12px;max-width:500px;max-height:80vh;overflow:auto;">
+${html}
+<button class="btn btn-secondary" style="margin-top:10px;" onclick="this.closest('.modal-bg').remove()">Закрыть</button>
+</div>`;
+document.body.appendChild(modal);
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+async function resetAgentMemory() {
+if (!confirm('Очистить память Agent?')) return;
+try {
+const r = await fetch('/api/agent/memory/reset', { method: 'POST' });
+if (r.ok) {
+toast('Agent', 'Память очищена', 'success');
+document.querySelector('.modal-bg:last-child')?.remove();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+// История решений агента
+async function showAgentDecisions() {
+try {
+const r = await fetch('/api/agent/decisions?n=30');
+if (!r.ok) return;
+const decisions = await r.json();
+
+let html = '<h3>📋 История решений AI</h3>';
+if (decisions.length === 0) {
+html += '<div style="color:var(--text3)">Решений пока нет</div>';
+} else {
+html += '<div style="max-height:400px; overflow-y:auto;">';
+decisions.reverse().forEach(d => {
+const color = d.action === 'CLOSE' ? 'var(--cyan)' : 'var(--yellow)';
+const icon = d.action === 'CLOSE' ? '✅' : '⏸️';
+html += `<div style="padding:8px; margin:4px 0; background:var(--bg4); border-radius:6px; border-left:3px solid ${color};">
+<div style="display:flex; justify-content:space-between; font-size:0.75rem;">
+<span><b>${d.symbol}</b> ${d.side}</span>
+<span style="color:var(--text3)">${d.time}</span>
+</div>
+<div style="font-size:0.8rem; margin-top:4px;">${icon} ${d.action}: ${d.reason}</div>
+<div style="font-size:0.7rem; color:${d.pnl >= 0 ? 'var(--green)' : 'var(--red)'}">PnL: $${d.pnl}</div>
+${d.reasoning ? `<div style="font-size:0.65rem; color:var(--text3); margin-top:4px;">💭 ${d.reasoning}</div>` : ''}
+</div>`;
+});
+html += '</div>';
+}
+
+const modal = document.createElement('div');
+modal.className = 'modal-bg';
+modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+modal.innerHTML = `<div style="background:var(--bg2);padding:20px;border-radius:12px;max-width:600px;width:90%;max-height:80vh;overflow:auto;">
+${html}
+<button class="btn btn-secondary" style="margin-top:10px;" onclick="this.closest('.modal-bg').remove()">Закрыть</button>
+</div>`;
+document.body.appendChild(modal);
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+// Логи агента
+async function showAgentLogs() {
+try {
+const r = await fetch('/api/agent/logs?n=50');
+if (!r.ok) return;
+const logs = await r.json();
+
+let html = '<h3>📜 Логи агента</h3>';
+if (logs.length === 0) {
+html += '<div style="color:var(--text3)">Логов пока нет</div>';
+} else {
+html += '<div style="max-height:400px; overflow-y:auto; font-family:monospace; font-size:0.7rem;">';
+logs.reverse().forEach(log => {
+let color = 'var(--text)';
+if (log.includes('✅') || log.includes('ЗАКРЫТО')) color = 'var(--green)';
+else if (log.includes('❌') || log.includes('error')) color = 'var(--red)';
+else if (log.includes('⚠️') || log.includes('warning')) color = 'var(--yellow)';
+html += `<div style="padding:4px 0; border-bottom:1px solid var(--border); color:${color};">${log}</div>`;
+});
+html += '</div>';
+}
+
+const modal = document.createElement('div');
+modal.className = 'modal-bg';
+modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+modal.innerHTML = `<div style="background:var(--bg2);padding:20px;border-radius:12px;max-width:700px;width:90%;max-height:80vh;overflow:auto;">
+${html}
+<button class="btn btn-secondary" style="margin-top:10px;" onclick="this.closest('.modal-bg').remove()">Закрыть</button>
+</div>`;
+document.body.appendChild(modal);
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+// Спросить AI о позиции
+async function askAiAboutPosition(tradeId, symbol) {
+toast('Agent', '🤔 Думаю...', 'info');
+try {
+const r = await fetch('/api/agent/ask_position', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({ trade_id: tradeId })
+});
+if (r.ok) {
+const data = await r.json();
+const modal = document.createElement('div');
+modal.className = 'modal-bg';
+modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+modal.innerHTML = `<div style="background:var(--bg2);padding:20px;border-radius:12px;max-width:500px;width:90%;">
+<h3>🤖 AI о ${symbol}</h3>
+<div style="padding:12px; background:var(--bg4); border-radius:8px; font-size:0.85rem; white-space:pre-wrap;">${data.response}</div>
+<button class="btn btn-secondary" style="margin-top:10px;" onclick="this.closest('.modal-bg').remove()">Закрыть</button>
+</div>`;
+document.body.appendChild(modal);
+} else {
+toast('Ошибка', 'Не удалось получить ответ', 'error');
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+// Cooldowns functions
+async function showCooldowns() {
+document.getElementById('cooldownsModal').classList.add('active');
+const content = document.getElementById('cooldownsContent');
+content.innerHTML = '<div style="color: var(--text3); text-align: center; padding: 20px;">⏳ Загрузка...</div>';
+try {
+const r = await fetch('/api/cooldowns');
+const d = await r.json();
+let html = '';
+
+// Глобальный кулдаун
+if (d.global_cooldown) {
+    html += `<div style="background: rgba(255,165,0,0.1); border: 1px solid var(--orange); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;">`;
+    html += `<b style="color: var(--orange);">⏳ Глобальный кулдаун:</b> ${d.global_cooldown.remaining_min} мин осталось`;
+    html += `</div>`;
+}
+
+// Daily loss stop
+if (d.daily_loss_stop) {
+    html += `<div style="background: rgba(255,0,0,0.1); border: 1px solid var(--red); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;">`;
+    html += `<b style="color: var(--red);">🚫 Дневной лимит убытка достигнут!</b> PnL дня: $${d.daily_pnl}`;
+    html += `</div>`;
+}
+
+// Заблокированные (daily SL limit)
+if (d.blocked && d.blocked.length > 0) {
+    html += `<div style="margin-bottom: 10px;"><b style="color: var(--red);">🔴 Заблокированы на день (макс ${d.blocked[0].max} SL):</b></div>`;
+    html += `<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;">`;
+    d.blocked.forEach(b => {
+        html += `<span style="background: rgba(255,0,0,0.15); color: var(--red); padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${b.symbol} (${b.losses} SL)</span>`;
+    });
+    html += `</div>`;
+}
+
+// Временные кулдауны
+if (d.cooldowns && d.cooldowns.length > 0) {
+    html += `<div style="margin-bottom: 10px;"><b style="color: var(--orange);">⏳ Временный кулдаун:</b></div>`;
+    html += `<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;">`;
+    d.cooldowns.forEach(c => {
+        html += `<span style="background: rgba(255,165,0,0.15); color: var(--orange); padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${c.symbol} (${c.remaining_min} мин)</span>`;
+    });
+    html += `</div>`;
+}
+
+// Все дневные потери по монетам
+if (d.daily_losses_all && Object.keys(d.daily_losses_all).length > 0) {
+    html += `<div style="margin-bottom: 10px;"><b style="color: var(--text2);">📊 SL за сегодня по монетам:</b></div>`;
+    html += `<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;">`;
+    const sorted = Object.entries(d.daily_losses_all).sort((a,b) => b[1] - a[1]);
+    sorted.forEach(([sym, cnt]) => {
+        const clr = cnt >= (d.blocked.length > 0 ? d.blocked[0].max : 2) ? 'var(--red)' : 'var(--text2)';
+        html += `<span style="color: ${clr}; padding: 2px 6px; font-size: 0.75rem; background: var(--bg2); border-radius: 3px;">${sym}: ${cnt}</span>`;
+    });
+    html += `</div>`;
+}
+
+if (!html) {
+    html = '<div style="color: var(--green); text-align: center; padding: 30px; font-size: 1rem;">✅ Нет активных блокировок</div>';
+}
+
+content.innerHTML = html;
+} catch(e) {
+content.innerHTML = `<div style="color: var(--red); padding: 20px;">Ошибка: ${e.message}</div>`;
+}
+}
+
+async function resetCooldowns() {
+if (!confirm('Сбросить все кулдауны и дневные счётчики SL по монетам?')) return;
+try {
+const r = await fetch('/api/cooldowns/reset', { method: 'POST' });
+const d = await r.json();
+if (d.success) {
+    toast('Кулдауны', 'Все блокировки сброшены!', 'success');
+    showCooldowns(); // Обновляем содержимое
+    updateStatus();
+}
+} catch(e) { toast('Ошибка', e.message, 'error'); }
+}
+
+// Chat functions
+function openAgentChat() {
+document.getElementById('agentChatModal').classList.add('active');
+}
+function showAgentHelp() {
+document.getElementById('agentHelpModal').classList.add('active');
+}
+
+async function sendChatMessage() {
+const input = document.getElementById('chatInput');
+const message = input.value.trim();
+if (!message) return;
+
+const messagesEl = document.getElementById('chatMessages');
+
+// Добавляем сообщение пользователя
+messagesEl.innerHTML += `<div style="text-align: right; margin: 8px 0;">
+<span style="background: var(--cyan); color: black; padding: 6px 12px; border-radius: 12px; display: inline-block; max-width: 80%;">${message}</span>
+</div>`;
+
+input.value = '';
+messagesEl.scrollTop = messagesEl.scrollHeight;
+
+// Показываем индикатор загрузки
+messagesEl.innerHTML += `<div id="chatLoading" style="text-align: left; margin: 8px 0;">
+<span style="background: var(--bg4); padding: 6px 12px; border-radius: 12px;">🤔 Думаю...</span>
+</div>`;
+messagesEl.scrollTop = messagesEl.scrollHeight;
+
+try {
+const r = await fetch('/api/smart/chat', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({ message })
+});
+
+document.getElementById('chatLoading')?.remove();
+
+if (r.ok) {
+const data = await r.json();
+// Форматируем ответ с переносами строк
+const formattedResponse = (data.response || '').replace(/\n/g, '<br>');
+messagesEl.innerHTML += `<div style="text-align: left; margin: 8px 0;">
+<span style="background: var(--bg4); padding: 6px 12px; border-radius: 12px; display: inline-block; max-width: 85%; white-space: pre-wrap;">🤖 ${formattedResponse}</span>
+</div>`;
+} else {
+messagesEl.innerHTML += `<div style="text-align: left; margin: 8px 0;">
+<span style="background: var(--red); color: white; padding: 6px 12px; border-radius: 12px;">❌ Ошибка</span>
+</div>`;
+}
+messagesEl.scrollTop = messagesEl.scrollHeight;
+} catch(e) {
+document.getElementById('chatLoading')?.remove();
+toast('Ошибка', e.message, 'error');
+}
+}
+
+// Toggle equity info display
+document.addEventListener('DOMContentLoaded', function() {
+const eqCheckbox = document.getElementById('setEquityProtectionEnabled');
+if (eqCheckbox) {
+eqCheckbox.addEventListener('change', function() {
+document.getElementById('equityInfo').style.display = this.checked ? 'block' : 'none';
+if (this.checked) loadEquityInfo();
+});
+}
+});
+async function doReset() {
+await fetch('/api/reset', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({ keep_settings: document.getElementById('keepSettings').checked })
+});
+closeModal('resetModal');
+toast('Сброс', 'Выполнен', 'success');
+// Сбрасываем кэш позиций чтобы гарантировать ре-рендер
+_positionsGridHash = '';
+// Мгновенно уничтожаем PnL-график — не ждём перехода на вкладку
+if (pnlChartInstance) { pnlChartInstance.destroy(); pnlChartInstance = null; }
+updateAll();
+// Перезагружаем PnL-график с задержкой чтобы DB успела записать pnl_reset_at
+setTimeout(loadPnlChart, 400);
+}
+// EXPORT FUNCTIONS
+function exportTrades() {
+window.open('/api/export/trades', '_blank');
+}
+function exportStatistics() {
+window.open('/api/export/statistics', '_blank');
+}
+function exportTradesDetailed() {
+window.open('/api/export/trades_detailed', '_blank');
+}
+function exportAiAnalyses() {
+window.open('/api/export/ai_analyses', '_blank');
+}
+function exportTradeHistory() {
+window.open('/api/export/trade_history', '_blank');
+}
+function exportDiagnostic() {
+window.open('/api/export/diagnostic', '_blank');
+}
+// AI ANALYSES HISTORY
+let aiAnalysesOffset = 0;
+async function loadAiAnalyses() {
+try {
+const symbol = document.getElementById('aiHistoryFilter').value;
+const provider = document.getElementById('aiHistoryProvider').value;
+const limitEl = document.getElementById('aiAnalysesLimitSelect');
+const aiAnalysesLimit = limitEl ? parseInt(limitEl.value) : 50;
+let url = `/api/ai/analyses?limit=${aiAnalysesLimit}&offset=${aiAnalysesOffset}`;
+if (symbol) url += `&symbol=${encodeURIComponent(symbol)}`;
+if (provider) url += `&provider=${provider}`;
+const r = await fetch(url);
+const data = await r.json();
+document.getElementById('aiAnalysesCount').textContent = data.total;
+document.getElementById('aiAnalysesPage').textContent = Math.floor(aiAnalysesOffset / aiAnalysesLimit) + 1;
+const list = document.getElementById('aiAnalysesList');
+if (!data.analyses || data.analyses.length === 0) {
+list.innerHTML = '<div class="empty">Нет анализов</div>';
+return;
+}
+list.innerHTML = data.analyses.map(a => `
+<div style="padding:10px;margin-bottom:8px;background:var(--bg4);border-radius:6px;border-left:3px solid ${a.action === 'SHORT' ? 'var(--red)' : 'var(--green)'};">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+<span><b>${a.symbol}</b> <span class="badge badge-${a.action === 'SHORT' ? 'red' : 'green'}" style="font-size:0.6rem;">${a.action}</span></span>
+<span style="font-size:0.65rem;color:var(--text3);">${a.timestamp}</span>
+</div>
+<div style="font-size:0.7rem;color:var(--text2);">
+${a.ai_provider} | Confidence: ${a.confidence}% | Change: ${a.change_24h?.toFixed(1)}%
+${a.sl_was_fixed ? '<span style="color:var(--orange);">⚠️ SL исправлен</span>' : ''}
+</div>
+<div style="font-size:0.65rem;color:var(--text3);margin-top:4px;">
+Entry: $${a.entry_price?.toFixed(6)} | SL: $${a.sl_corrected?.toFixed(6)} | TP1: $${a.tp1?.toFixed(6)}
+</div>
+${a.trade_opened ? '<span class="badge badge-green" style="font-size:0.55rem;margin-top:4px;">Сделка открыта</span>' : ''}
+</div>
+`).join('');
+} catch(e) {
+document.getElementById('aiAnalysesList').innerHTML = '<div class="empty">Ошибка загрузки</div>';
+}
+}
+function aiAnalysesPrev() {
+if (aiAnalysesOffset >= aiAnalysesLimit) {
+aiAnalysesOffset -= aiAnalysesLimit;
+loadAiAnalyses();
+}
+}
+function aiAnalysesNext() {
+aiAnalysesOffset += aiAnalysesLimit;
+loadAiAnalyses();
+}
+// PROMPT EDITOR
+async function loadPrompt() {
+try {
+const r = await fetch('/api/prompts');
+const data = await r.json();
+const editor = document.getElementById('promptEditor');
+const status = document.getElementById('promptStatus');
+if (data.active && data.active.prompt_text) {
+editor.value = data.active.prompt_text;
+status.textContent = `Кастомный промпт: ${data.active.name}`;
+} else {
+editor.value = data.default_prompt || '';
+status.textContent = 'Промпт по умолчанию';
+}
+document.getElementById('promptLength').textContent = editor.value.length;
+editor.addEventListener('input', () => {
+document.getElementById('promptLength').textContent = editor.value.length;
+});
+} catch(e) {
+document.getElementById('promptEditor').value = 'Ошибка загрузки промпта';
+}
+}
+async function savePrompt() {
+try {
+const text = document.getElementById('promptEditor').value;
+const r = await fetch('/api/prompts', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify({ name: 'custom', prompt_text: text, is_active: true })
+});
+if (r.ok) {
+toast('Промпт', 'Сохранён', 'success');
+document.getElementById('promptStatus').textContent = 'Кастомный промпт: custom';
+}
+} catch(e) {
+toast('Ошибка', e.message, 'error');
+}
+}
+async function resetPrompt() {
+try {
+await fetch('/api/prompts/reset', { method: 'POST' });
+loadPrompt();
+toast('Промпт', 'Сброшен на дефолтный', 'success');
+} catch(e) {
+toast('Ошибка', e.message, 'error');
+}
+}
+function exportPrompt() {
+const text = document.getElementById('promptEditor').value;
+const blob = new Blob([text], { type: 'text/plain' });
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = 'ai_prompt.txt';
+a.click();
+URL.revokeObjectURL(url);
+}
+function importPrompt(input) {
+const file = input.files[0];
+if (file) {
+const reader = new FileReader();
+reader.onload = (e) => {
+document.getElementById('promptEditor').value = e.target.result;
+document.getElementById('promptLength').textContent = e.target.result.length;
+document.getElementById('promptStatus').textContent = 'Импортирован (не сохранён)';
+};
+reader.readAsText(file);
+}
+}
+// WORK HOURS
+async function updateWorkHours() {
+try {
+const r = await fetch('/api/work_hours/status');
+const data = await r.json();
+const ind = document.getElementById('workHoursIndicator');
+const text = document.getElementById('workHoursText');
+if (!data.enabled) {
+ind.className = 'health-indicator healthy';
+text.textContent = '24/7';
+} else if (data.in_work_hours) {
+ind.className = 'health-indicator healthy';
+text.textContent = `${data.start}-${data.end}`;
+} else {
+ind.className = 'health-indicator warning';
+text.textContent = `⏸ ${data.current_time}`;
+}
+} catch(e) {}
+}
+// DIAGNOSTIC
+async function showDiagnostic() {
+try {
+const r = await fetch('/api/diagnostic');
+const data = await r.json();
+let html = '<div style="max-height:400px;overflow-y:auto;font-size:0.75rem;">';
+data.checks.forEach(c => {
+const color = c.status === 'OK' ? 'var(--green)' : c.status === 'FAIL' ? 'var(--red)' : 'var(--orange)';
+html += `<div style="display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid var(--border);">
+<span>${c.name}</span>
+<span style="color:${color}">${c.value}</span>
+</div>`;
+});
+if (data.recommendation) {
+html += `<div style="padding:10px;margin-top:10px;background:rgba(239,68,68,0.1);border-radius:6px;color:var(--red);">${data.recommendation}</div>`;
+}
+html += '</div>';
+// Создаём модальное окно
+const modal = document.createElement('div');
+modal.className = 'modal-bg active';
+modal.innerHTML = `
+<div class="modal" style="max-width:500px;">
+<div class="modal-header">
+<span class="modal-title">🔍 Диагностика</span>
+<button class="modal-close" onclick="this.closest('.modal-bg').remove()">&times;</button>
+</div>
+<div class="modal-body">${html}</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="exportDiagnostic()">📥 Экспорт</button>
+<button class="btn btn-primary" onclick="this.closest('.modal-bg').remove()">OK</button>
+</div>
+</div>
+`;
+document.body.appendChild(modal);
+} catch(e) {
+toast('Ошибка', e.message, 'error');
+}
+}
+// START/PAUSE
+function startScanner() {
+togglePause();
+}
+function refreshData() {
+updateAll();
+}
+function updateAll() {
+updateStatus();
+updatePortfolio();
+updatePositions();
+updateLogs();
+updateHealth();
+updateWorkHours();
+loadAgentStatus();  // Crypto Agent panel
+if (!chartInitialized) setTimeout(initChart, 500);
+}
+// Init
+document.addEventListener('DOMContentLoaded', function() {
+loadSettings();
+initChart();
+updateAll();
+loadBlacklist();
+setInterval(updateStatus, 10000);
+setInterval(updatePortfolio, 5000);
+setInterval(updatePositions, 5000);
+setInterval(updateLogs, 3000);
+setInterval(updateHealth, 30000);
+setInterval(() => { if (chart && series && !isUserScrolling) loadChart(); }, 30000); // авто-обновление графика
+setInterval(updateWorkHours, 10000);
+setInterval(loadAgentStatus, 15000);  // Agent каждые 15 сек
+setInterval(() => { if (!isUserScrolling && chartInitialized) loadChart(); }, 15000);
+});
+document.addEventListener('keydown', e => {
+if (e.key === 'Escape') document.querySelectorAll('.modal-bg.active').forEach(m => m.classList.remove('active'));
+});
+
+// ============ ФИЛЬТРЫ И ГРАФИК PNL ============
+let pnlChartInstance = null;
+
+async function loadFilters() {
+try {
+const r = await fetch('/api/filters');
+const data = await r.json();
+if (data.filters) {
+const f = data.filters;
+// Часы
+document.querySelectorAll('.filter-hour input').forEach(cb => {
+const hour = parseInt(cb.dataset.hour);
+const hours = [hour, hour+1, hour+2, hour+3];
+cb.checked = hours.some(h => f.allowed_hours?.includes(h));
+});
+// Дни
+document.querySelectorAll('.filter-day input').forEach(cb => {
+cb.checked = f.allowed_days?.includes(parseInt(cb.dataset.day));
+});
+// Направление
+document.getElementById('filterShort').checked = f.allowed_directions?.includes('SHORT');
+document.getElementById('filterLong').checked = f.allowed_directions?.includes('LONG');
+// BTC тренд режимы
+document.getElementById('btcBullishMode').value = f.btc_bullish_mode || 'long_only';
+document.getElementById('btcBearishMode').value = f.btc_bearish_mode || 'short_only';
+document.getElementById('btcNeutralMode').value = f.btc_neutral_mode || 'any';
+// Мин. сила тренда
+const bullStr = f.btc_bullish_min_strength ?? 0.5;
+const bearStr = f.btc_bearish_min_strength ?? 0.5;
+document.getElementById('btcBullishMinStr').value = bullStr;
+document.getElementById('btcBearishMinStr').value = bearStr;
+document.getElementById('closeLongOnNeutral').checked = f.close_long_on_neutral || false;
+document.getElementById('closeShortOnNeutral').checked = f.close_short_on_neutral || false;
+// Автозакрытие при ослаблении тренда (v6.1)
+document.getElementById('closeLongOnWeakBull').checked = f.close_long_on_weak_bull || false;
+document.getElementById('closeLongWeakBullThreshold').value = f.close_long_weak_bull_threshold ?? 0.5;
+document.getElementById('closeShortOnWeakBear').checked = f.close_short_on_weak_bear || false;
+document.getElementById('closeShortWeakBearThreshold').value = f.close_short_weak_bear_threshold ?? 0.5;
+// Confidence
+document.getElementById('filterConfidence').value = f.min_confidence || 70;
+// Recheck change at open
+const recheckEl = document.getElementById('recheckChangeAtOpen');
+if (recheckEl) recheckEl.checked = f.recheck_change_at_open !== false;
+}
+updateFiltersPreview();
+} catch(e) {
+console.error('Load filters error:', e);
+}
+}
+
+async function saveFilters() {
+try {
+const hours = [];
+document.querySelectorAll('.filter-hour input:checked').forEach(cb => {
+const h = parseInt(cb.dataset.hour);
+for (let i = 0; i < 4; i++) hours.push(h + i);
+});
+const days = [];
+document.querySelectorAll('.filter-day input:checked').forEach(cb => {
+days.push(parseInt(cb.dataset.day));
+});
+const directions = [];
+if (document.getElementById('filterShort').checked) directions.push('SHORT');
+if (document.getElementById('filterLong').checked) directions.push('LONG');
+const btcBullishMode = document.getElementById('btcBullishMode').value;
+const btcBearishMode = document.getElementById('btcBearishMode').value;
+const btcNeutralMode = document.getElementById('btcNeutralMode').value;
+const btcBullishMinStr = parseFloat(document.getElementById('btcBullishMinStr').value) || 0.5;
+const btcBearishMinStr = parseFloat(document.getElementById('btcBearishMinStr').value) || 0.5;
+const closeLongOnNeutral = document.getElementById('closeLongOnNeutral').checked;
+const closeShortOnNeutral = document.getElementById('closeShortOnNeutral').checked;
+// Автозакрытие при ослаблении тренда (v6.1)
+const closeLongOnWeakBull = document.getElementById('closeLongOnWeakBull').checked;
+const closeLongWeakBullThreshold = parseFloat(document.getElementById('closeLongWeakBullThreshold').value) || 0.5;
+const closeShortOnWeakBear = document.getElementById('closeShortOnWeakBear').checked;
+const closeShortWeakBearThreshold = parseFloat(document.getElementById('closeShortWeakBearThreshold').value) || 0.5;
+const confidence = parseInt(document.getElementById('filterConfidence').value) || 70;
+const recheckChangeAtOpen = document.getElementById('recheckChangeAtOpen')?.checked !== false;
+
+const filters = {
+allowed_hours: [...new Set(hours)].sort((a,b) => a-b),
+allowed_days: days.sort((a,b) => a-b),
+allowed_directions: directions,
+btc_bullish_mode: btcBullishMode,
+btc_bearish_mode: btcBearishMode,
+btc_neutral_mode: btcNeutralMode,
+btc_bullish_min_strength: btcBullishMinStr,
+btc_bearish_min_strength: btcBearishMinStr,
+close_long_on_neutral: closeLongOnNeutral,
+close_short_on_neutral: closeShortOnNeutral,
+close_long_on_weak_bull: closeLongOnWeakBull,
+close_long_weak_bull_threshold: closeLongWeakBullThreshold,
+close_short_on_weak_bear: closeShortOnWeakBear,
+close_short_weak_bear_threshold: closeShortWeakBearThreshold,
+min_confidence: confidence,
+recheck_change_at_open: recheckChangeAtOpen
+};
+
+const r = await fetch('/api/filters', {
+method: 'POST',
+headers: {'Content-Type': 'application/json'},
+body: JSON.stringify(filters)
+});
+if (r.ok) {
+toast('Фильтры', 'Сохранены!', 'success');
+updateFiltersPreview();
+} else {
+toast('Ошибка', 'Не удалось сохранить', 'error');
+}
+} catch(e) {
+toast('Ошибка', e.message, 'error');
+}
+}
+
+function updateFiltersPreview() {
+const hours = [];
+document.querySelectorAll('.filter-hour input:checked').forEach(cb => {
+hours.push(cb.parentElement.querySelector('span').textContent);
+});
+const days = [];
+document.querySelectorAll('.filter-day input:checked').forEach(cb => {
+days.push(cb.parentElement.querySelector('span').textContent);
+});
+const dirs = [];
+if (document.getElementById('filterShort').checked) dirs.push('SHORT');
+if (document.getElementById('filterLong').checked) dirs.push('LONG');
+const btcBull = document.getElementById('btcBullishMode')?.value || 'long_only';
+const btcBear = document.getElementById('btcBearishMode')?.value || 'short_only';
+const btcNeut = document.getElementById('btcNeutralMode')?.value || 'any';
+const bullStr = document.getElementById('btcBullishMinStr')?.value || '0.5';
+const bearStr = document.getElementById('btcBearishMinStr')?.value || '0.5';
+const conf = document.getElementById('filterConfidence').value;
+const modeShort = {'long_only':'↑L','short_only':'↓S','any':'↕','any_incl_neutral':'↕N','none':'⛔'};
+
+const recheckPreview = document.getElementById('recheckChangeAtOpen')?.checked;
+let preview = `⏰ ${hours.join(', ') || 'Нет'} | `;
+preview += `📅 ${days.join(', ') || 'Нет'} | `;
+preview += `📈 ${dirs.join('/') || 'Нет'} | `;
+preview += `₿ 🟢${modeShort[btcBull]||'?'}≥${bullStr}% 🔴${modeShort[btcBear]||'?'}≥${bearStr}% ⚖${modeShort[btcNeut]||'?'} | 🎯 ${conf}% | ⏰${recheckPreview ? '✅' : '❌'}`;
+document.getElementById('filtersPreview').textContent = preview;
+}
+
+function selectAllHours() {
+document.querySelectorAll('.filter-hour input').forEach(cb => cb.checked = true);
+updateFiltersPreview();
+}
+function selectNoHours() {
+document.querySelectorAll('.filter-hour input').forEach(cb => cb.checked = false);
+updateFiltersPreview();
+}
+function selectBestHours() {
+document.querySelectorAll('.filter-hour input').forEach(cb => {
+const h = parseInt(cb.dataset.hour);
+cb.checked = (h >= 16);
+});
+updateFiltersPreview();
+}
+function selectAllDays() {
+document.querySelectorAll('.filter-day input').forEach(cb => cb.checked = true);
+updateFiltersPreview();
+}
+function selectWeekdays() {
+document.querySelectorAll('.filter-day input').forEach(cb => {
+cb.checked = parseInt(cb.dataset.day) < 5;
+});
+updateFiltersPreview();
+}
+function selectWeekends() {
+document.querySelectorAll('.filter-day input').forEach(cb => {
+cb.checked = parseInt(cb.dataset.day) >= 5;
+});
+updateFiltersPreview();
+}
+
+// Обновляем preview при изменении чекбоксов
+document.addEventListener('change', e => {
+if (e.target.closest('.filter-hour, .filter-day') || 
+e.target.id === 'filterShort' || e.target.id === 'filterLong' ||
+e.target.id === 'btcBullishMode' || e.target.id === 'btcBearishMode' || e.target.id === 'btcNeutralMode' || 
+e.target.id === 'btcBullishMinStr' || e.target.id === 'btcBearishMinStr' || e.target.id === 'filterConfidence') {
+updateFiltersPreview();
+}
+});
+// Слайдеры мин. силы — обновляем текст при перетаскивании
+document.getElementById('btcBullishMinStr')?.addEventListener('input', e => {
+updateFiltersPreview();
+});
+document.getElementById('btcBearishMinStr')?.addEventListener('input', e => {
+updateFiltersPreview();
+});
+
+// ГРАФИК PNL
+async function loadPnlChart() {
+try {
+if (typeof Chart === 'undefined') {
+document.getElementById('pnlChartStats').innerHTML = '<span style="color:var(--red)">Chart.js не загружен</span>';
+return;
+}
+const period = document.getElementById('pnlChartPeriod').value;
+const r = await fetch(`/api/pnl_history?days=${period}`);
+const data = await r.json();
+
+if (!data.history || data.history.length === 0) {
+if (pnlChartInstance) { pnlChartInstance.destroy(); pnlChartInstance = null; }
+const emptyCtx = document.getElementById('pnlChart').getContext('2d');
+emptyCtx.clearRect(0, 0, emptyCtx.canvas.width, emptyCtx.canvas.height);
+document.getElementById('pnlChartStats').innerHTML = '<span style="color:var(--text3)">Нет сделок после сброса</span>';
+return;
+}
+
+// Время в формате HH:MM (или DD HH:MM если > 1 дня)
+const times = data.history.map(h => h.time);
+const firstDate = times[0] ? times[0].substring(0, 10) : '';
+const lastDate = times[times.length-1] ? times[times.length-1].substring(0, 10) : '';
+const multiDay = firstDate !== lastDate;
+
+const labels = data.history.map(h => {
+if (!h.time) return '';
+if (multiDay) return h.time.substring(5, 16).replace('T', ' '); // MM-DD HH:MM
+return h.time.substring(11, 16); // HH:MM
+});
+const values = data.history.map(h => h.cumulative_pnl);
+
+// Цвета точек: зелёный для профитных, красный для убыточных
+const pointColors = data.history.map(h => {
+if (h.reason === 'START') return 'rgba(255,255,255,0.5)';
+return (h.pnl || 0) >= 0 ? '#00ff88' : '#ff5555';
+});
+const pointSizes = data.history.map(h => {
+if (h.reason === 'START') return 0;
+const absPnl = Math.abs(h.pnl || 0);
+if (absPnl >= 3) return 5;
+if (absPnl >= 1) return 4;
+return 3;
+});
+
+const ctx = document.getElementById('pnlChart').getContext('2d');
+if (pnlChartInstance) pnlChartInstance.destroy();
+
+const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+const lastValue = values[values.length - 1] || 0;
+if (lastValue >= 0) {
+gradient.addColorStop(0, 'rgba(0, 255, 136, 0.15)');
+gradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
+} else {
+gradient.addColorStop(0, 'rgba(255, 85, 85, 0.15)');
+gradient.addColorStop(1, 'rgba(255, 85, 85, 0)');
+}
+
+pnlChartInstance = new Chart(ctx, {
+type: 'line',
+data: {
+labels: labels,
+datasets: [{
+label: 'PnL ($)',
+data: values,
+borderColor: lastValue >= 0 ? '#00ff88' : '#ff5555',
+backgroundColor: gradient,
+fill: true,
+tension: 0.1,
+pointRadius: pointSizes,
+pointBackgroundColor: pointColors,
+pointBorderColor: pointColors,
+pointHoverRadius: 7,
+borderWidth: 2
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: false,
+plugins: {
+legend: { display: false },
+tooltip: {
+callbacks: {
+title: function(items) {
+const idx = items[0].dataIndex;
+const h = data.history[idx];
+return h.time ? h.time.substring(0, 19).replace('T', ' ') : '';
+},
+label: function(item) {
+const idx = item.dataIndex;
+const h = data.history[idx];
+if (h.reason === 'START') return 'Начало';
+const sign = h.pnl >= 0 ? '+' : '';
+return `${h.symbol}: ${sign}$${h.pnl.toFixed(2)} (${h.reason}) | Итого: $${h.cumulative_pnl.toFixed(2)}`;
+}
+}
+}
+},
+scales: {
+x: {
+grid: { color: 'rgba(255,255,255,0.05)' },
+ticks: { color: '#999', maxRotation: 45, maxTicksLimit: 15, font: { size: 10 } }
+},
+y: {
+beginAtZero: true,
+grid: { color: 'rgba(255,255,255,0.1)' },
+ticks: { color: '#999', callback: v => '$' + v.toFixed(0) }
+}
+}
+}
+});
+
+const totalPnl = lastValue;
+const maxPnl = Math.max(...values);
+const minPnl = Math.min(...values);
+const trades = data.total_trades || 0;
+const wins = data.history.filter(h => h.pnl > 0).length;
+const losses = data.history.filter(h => h.pnl < 0).length;
+document.getElementById('pnlChartStats').innerHTML = `
+<span>💰 Итого: <b style="color:${totalPnl >= 0 ? 'var(--green)' : 'var(--red)'}">$${totalPnl.toFixed(2)}</b></span>
+<span>📈 Макс: <b style="color:var(--green)">$${maxPnl.toFixed(2)}</b></span>
+<span>📉 Мин: <b style="color:var(--red)">$${minPnl.toFixed(2)}</b></span>
+<span>✅ ${wins}W / ❌ ${losses}L</span>
+<span>📊 Сделок: <b>${trades}</b></span>
+`;
+} catch(e) {
+console.error('PnL chart error:', e);
+document.getElementById('pnlChartStats').innerHTML = '<span style="color:var(--red)">Ошибка: ' + e.message + '</span>';
+}
+}
+
+// Загружаем при открытии вкладки
+const origShowTab = showTab;
+showTab = function(tab) {
+origShowTab(tab);
+if (tab === 'postmortem') {
+loadFilters();
+loadPnlChart();
+}
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# RVV Hunter v6.0 - LIVE Trading Ready
+# Python 3.8+
+
+# Web Framework
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# Crypto Exchange
+ccxt>=4.0.0
+
+# AI Providers
+openai>=1.0.0
+
+# Telegram
+requests>=2.31.0
+
+# Numerical
+numpy>=1.24.0
+
+# Utils
+python-dateutil>=2.8.0
+
+# WebSocket (optional, for real-time prices)
+websocket-client>=1.6.0
+
+# Database (built-in sqlite3)
