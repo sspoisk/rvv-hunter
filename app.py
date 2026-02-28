@@ -2333,6 +2333,14 @@ def api_get_filters():
                 "close_short_on_weak_bear": False,
                 "close_short_weak_bear_threshold": 0.5,
                 "min_confidence": 70
+            }),
+            "entry_filters": config.get('entry_filters', {
+                "parabolic_enabled": True,
+                "parabolic_multiplier": 3.0,
+                "rvol_enabled": True,
+                "min_rvol": 1.2,
+                "multi_tf_enabled": True,
+                "multi_tf_ema_period": 20
             })
         })
     except Exception as e:
@@ -2364,9 +2372,21 @@ def api_set_filters():
             "min_confidence": data.get('min_confidence', 70)
         }
         
+        # Entry filters (v6.4)
+        if 'entry_filters' in data:
+            ef = data['entry_filters']
+            config['entry_filters'] = {
+                "parabolic_enabled": ef.get('parabolic_enabled', True),
+                "parabolic_multiplier": float(ef.get('parabolic_multiplier', 3.0)),
+                "rvol_enabled": ef.get('rvol_enabled', True),
+                "min_rvol": float(ef.get('min_rvol', 1.2)),
+                "multi_tf_enabled": ef.get('multi_tf_enabled', True),
+                "multi_tf_ema_period": int(ef.get('multi_tf_ema_period', 20))
+            }
+
         with open('config.json', 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
-        
+
         # Обновляем trader если есть
         if state.trader:
             state.trader.filters = config['filters']
@@ -2384,7 +2404,7 @@ def api_set_filters():
             state.trader.settings.close_short_on_weak_bear = config['filters'].get('close_short_on_weak_bear', False)
             state.trader.settings.close_short_weak_bear_threshold = float(config['filters'].get('close_short_weak_bear_threshold', 0.5))
         
-        logger.info(f"[FILTERS] Updated: {config['filters']}")
+        logger.info(f"[FILTERS] Updated: filters={config['filters']}, entry_filters={config.get('entry_filters', {})}")
         return jsonify({"success": True})
     except Exception as e:
         logger.error(f"[FILTERS] Error: {e}")

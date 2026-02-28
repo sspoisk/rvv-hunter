@@ -483,3 +483,93 @@ if atr_percent > 0:
 ```
   ~ trading.trailing_activation_pct: 1 → 1.5
 ```
+
+## [2026-02-28 00:00] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_000015.json`
+- **Изменения:**
+```
+  ~ trading.stop_loss_pct: 1.25 → 0.8
+  ~ trading.trailing_activation_pct: 1.5 → 2.0
+  ~ trading.trailing_distance_pct: 0.05 → 0.4
+```
+
+## [2026-02-28 00:08] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_000829.json`
+- **Изменения:**
+```
+  (без изменений)
+```
+
+## [2026-02-28 00:24] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_002451.json`
+- **Изменения:**
+```
+  + trading.atr_adaptive_sl = True
+  + trading.atr_sl_multiplier = 1.5
+  + trading.atr_trail_activation_multiplier = 3.0
+  + trading.atr_trail_distance_multiplier = 0.7
+```
+
+## [2026-02-28 00:32] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_003224.json`
+- **Изменения:**
+```
+  + trading.atr_adaptive_sl = True
+  + trading.atr_sl_multiplier = 1.5
+  + trading.atr_trail_activation_multiplier = 3.0
+  + trading.atr_trail_distance_multiplier = 0.7
+```
+
+## [2026-02-28 00:38] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_003854.json`
+- **Изменения:**
+```
+  + trading.atr_adaptive_sl = True
+  + trading.atr_sl_multiplier = 1.5
+  + trading.atr_trail_activation_multiplier = 3.0
+  + trading.atr_trail_distance_multiplier = 0.7
+```
+
+## [2026-02-28 04:59] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_045937.json`
+- **Изменения:**
+```
+  + entry_filters.min_rvol = 1.2
+  + entry_filters.multi_tf_ema_period = 20
+  + entry_filters.multi_tf_enabled = True
+  + entry_filters.parabolic_enabled = True
+  + entry_filters.parabolic_multiplier = 3.0
+  + entry_filters.rvol_enabled = True
+```
+
+## [2026-02-28 05:11] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_051106.json`
+- **Изменения:**
+```
+  ~ filters.btc_bearish_min_strength: 0.3 → 0.5
+  ~ filters.btc_bullish_min_strength: 0.3 → 0.5
+```
+
+## [2026-02-28 05:14] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_051406.json`
+- **Изменения:**
+```
+  ~ filters.btc_bearish_min_strength: 0.3 → 0.5
+  ~ filters.btc_bullish_min_strength: 0.3 → 0.5
+```

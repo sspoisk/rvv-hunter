@@ -1375,6 +1375,61 @@ class MockAIEngine(BaseAIEngine):
                 vol_ratio = volumes[-1] / avg_vol if avg_vol > 0 else 1.0
 
             # ═══════════════════════════════════════════
+            # ENTRY FILTERS (v6.4) — Parabolic + RVOL + Multi-TF
+            # ═══════════════════════════════════════════
+            entry_filter_cfg = {}
+            try:
+                with open('config.json', 'r') as f:
+                    entry_filter_cfg = json.load(f).get('entry_filters', {})
+            except Exception:
+                pass
+
+            # --- PARABOLIC FILTER ---
+            # Пропускаем вход если последняя свеча аномально большая (вход на пике)
+            is_parabolic = False
+            parabolic_ratio = 0.0
+            if entry_filter_cfg.get('parabolic_enabled', True) and highs and lows and len(highs) >= 16:
+                parabolic_mult = entry_filter_cfg.get('parabolic_multiplier', 3.0)
+                ranges = [highs[i] - lows[i] for i in range(len(highs))]
+                current_range = ranges[-1]
+                avg_range = sum(ranges[-16:-1]) / max(len(ranges[-16:-1]), 1)
+                if avg_range > 0:
+                    parabolic_ratio = current_range / avg_range
+                    if parabolic_ratio > parabolic_mult:
+                        is_parabolic = True
+                        logger.info(f"[ALGO] {symbol_clean}: PARABOLIC FILTER — свеча {parabolic_ratio:.1f}x avg (>{parabolic_mult:.1f}x), пропуск")
+
+            # --- RVOL FILTER ---
+            # Пропускаем вход при слишком низком объёме (движение без подтверждения)
+            rvol_ok = True
+            if entry_filter_cfg.get('rvol_enabled', True):
+                min_rvol = entry_filter_cfg.get('min_rvol', 1.2)
+                if vol_ratio < min_rvol:
+                    rvol_ok = False
+                    logger.debug(f"[ALGO] {symbol_clean}: RVOL={vol_ratio:.2f} < {min_rvol} — низкий объём")
+
+            # --- MULTI-TF TREND FILTER ---
+            # Проверяем EMA-тренд на 1h: не входить против тренда старшего ТФ
+            trend_1h = None  # "UP", "DOWN" или None (нет данных / нейтрально)
+            if entry_filter_cfg.get('multi_tf_enabled', True):
+                data_1h = ohlcv.get('1h', {}) if ohlcv else {}
+                closes_1h = data_1h.get('close', []) if data_1h else []
+                ema_period = entry_filter_cfg.get('multi_tf_ema_period', 20)
+                if closes_1h and len(closes_1h) >= ema_period:
+                    # EMA расчёт
+                    ema = closes_1h[0]
+                    k = 2 / (ema_period + 1)
+                    for c in closes_1h[1:]:
+                        ema = c * k + ema * (1 - k)
+                    price_1h = closes_1h[-1]
+                    # Тренд определяем по позиции цены относительно EMA
+                    ema_diff_pct = (price_1h - ema) / ema * 100 if ema > 0 else 0
+                    if ema_diff_pct > 0.3:
+                        trend_1h = "UP"
+                    elif ema_diff_pct < -0.3:
+                        trend_1h = "DOWN"
+
+            # ═══════════════════════════════════════════
             # SCORING SYSTEM — каждый индикатор голосует
             # Положительный = SHORT, отрицательный = LONG
             # ═══════════════════════════════════════════
@@ -1444,6 +1499,30 @@ class MockAIEngine(BaseAIEngine):
                 confidence = min(55 + abs(score) * 5, 95)
 
             # ═══════════════════════════════════════════
+            # ENTRY FILTERS v6.4 — отклоняем сигнал если фильтры не прошли
+            # ═══════════════════════════════════════════
+            filter_reject_reason = None
+            if action != "WAIT":
+                # 1. Parabolic filter — вход на пике
+                if is_parabolic:
+                    filter_reject_reason = f"PARABOLIC: свеча {parabolic_ratio:.1f}x средней"
+                # 2. RVOL — нет объёма
+                elif not rvol_ok:
+                    filter_reject_reason = f"LOW RVOL: {vol_ratio:.2f}x (мин {entry_filter_cfg.get('min_rvol', 1.2)})"
+                # 3. Multi-TF — против тренда 1h
+                elif trend_1h is not None:
+                    if action == "LONG" and trend_1h == "DOWN":
+                        filter_reject_reason = f"TREND 1H: DOWN — LONG против тренда"
+                    elif action == "SHORT" and trend_1h == "UP":
+                        filter_reject_reason = f"TREND 1H: UP — SHORT против тренда"
+
+            if filter_reject_reason:
+                logger.info(f"[ALGO] {symbol_clean}: {action} score={score:+d} ОТКЛОНЁН → {filter_reject_reason}")
+                action = "WAIT"
+                confidence = 50.0
+                signals.append(f"⛔ {filter_reject_reason}")
+
+            # ═══════════════════════════════════════════
             # SL/TP из настроек
             # ═══════════════════════════════════════════
             sl_pct = 0.05
@@ -1485,6 +1564,9 @@ class MockAIEngine(BaseAIEngine):
                 s = btc_trend.get('strength', '')
                 btc_info = f" | BTC: {t} ({s})"
 
+            # Строка фильтров для отображения
+            filter_status = f"Parab={'⛔' if is_parabolic else '✅'}{parabolic_ratio:.1f}x | RVOL={'⛔' if not rvol_ok else '✅'}{vol_ratio:.1f}x | Trend1h={'⛔' if filter_reject_reason and 'TREND' in filter_reject_reason else '✅'}{trend_1h or '—'}"
+
             if action != "WAIT":
                 emoji = "🔴" if action == "SHORT" else "🟢"
                 signal_list = "\n".join(f"  • {s}" for s in signals)
@@ -1493,12 +1575,15 @@ Score: {score:+d}/7 | Confidence: {confidence:.0f}%
 📊 Индикаторы:
   RSI(14)={rsi:.1f} | BB%B={bb_pct:.0f} | MACD hist={'+'if macd_hist>0 else ''}{macd_hist:.6f}
   ATR={atr_pct:.2f}% | Vol={vol_ratio:.1f}x | 24h={change_24h:+.1f}%
+🔒 Фильтры: {filter_status}
 📋 Сигналы:
 {signal_list}"""
             else:
+                reject_info = f"\n  ⛔ {filter_reject_reason}" if filter_reject_reason else ""
                 analysis_ru = f"""⚪ ALGO WAIT: {symbol_clean}{btc_info}
-Score: {score:+d}/7 — недостаточно для входа
-  RSI={rsi:.1f} | BB%B={bb_pct:.0f} | 24h={change_24h:+.1f}%"""
+Score: {score:+d}/7 — {'отклонён фильтром' if filter_reject_reason else 'недостаточно для входа'}
+  RSI={rsi:.1f} | BB%B={bb_pct:.0f} | 24h={change_24h:+.1f}%
+  🔒 {filter_status}{reject_info}"""
 
             logger.info(f"[ALGO] {symbol_clean}: {action} score={score:+d} RSI={rsi:.0f} BB%={bb_pct:.0f} MACD={'+'if macd_hist>0 else ''}{macd_hist:.4f}")
 
@@ -1520,7 +1605,10 @@ Score: {score:+d}/7 — недостаточно для входа
                 'indicators': {
                     'rsi': rsi, 'bb_pct': bb_pct, 'bb_upper': upper, 'bb_lower': lower,
                     'macd': macd_val, 'macd_signal': signal_val, 'macd_hist': macd_hist,
-                    'atr': atr, 'atr_pct': atr_pct, 'vol_ratio': vol_ratio
+                    'atr': atr, 'atr_pct': atr_pct, 'vol_ratio': vol_ratio,
+                    'parabolic_ratio': parabolic_ratio, 'is_parabolic': is_parabolic,
+                    'rvol_ok': rvol_ok, 'trend_1h': trend_1h,
+                    'filter_reject': filter_reject_reason
                 },
                 'provider': 'algo',
                 'response_time': 0.001,

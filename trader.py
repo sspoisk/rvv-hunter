@@ -121,7 +121,12 @@ class Settings:
     trailing_enabled: bool = True
     trailing_distance_pct: float = 0.8   # Дистанция 0.8% — даёт позиции дышать
     trailing_activation_pct: float = 2.0  # Активация при 2% профита
-    # Адаптивный трейлинг
+    # ATR-адаптивный SL/Trailing (v6.2)
+    atr_adaptive_sl: bool = True           # Включить ATR-адаптивный SL и trailing
+    atr_sl_multiplier: float = 1.5         # SL = ATR × multiplier (min = stop_loss_pct)
+    atr_trail_activation_multiplier: float = 3.0  # Trail activation = ATR × multiplier
+    atr_trail_distance_multiplier: float = 0.7    # Trail distance = ATR × multiplier
+    # Адаптивный трейлинг (legacy)
     adaptive_trailing_enabled: bool = False
     adaptive_min_trades: int = 3  # Мин. сделок для обучения
     # Частичное закрытие
@@ -310,7 +315,11 @@ class VirtualTrader:
                     'leverage': 'leverage',
                     'max_positions': 'max_positions',
                     'max_to_analyze': 'max_to_analyze',
-                    'min_change_filter': 'min_change_filter'
+                    'min_change_filter': 'min_change_filter',
+                    'atr_adaptive_sl': 'atr_adaptive_sl',
+                    'atr_sl_multiplier': 'atr_sl_multiplier',
+                    'atr_trail_activation_multiplier': 'atr_trail_activation_multiplier',
+                    'atr_trail_distance_multiplier': 'atr_trail_distance_multiplier'
                 }
                 
                 for config_key, settings_key in mapping.items():
@@ -415,7 +424,25 @@ class VirtualTrader:
         - distance_pct: расстояние от цены
         - mode: default/adaptive/learned
         """
-        # v5.8.6: ВСЕГДА используем settings если adaptive отключён
+        # v6.2: ATR-адаптивный trailing
+        if self.settings.atr_adaptive_sl and current_atr and current_atr > 0:
+            atr_act = round(current_atr * self.settings.atr_trail_activation_multiplier, 2)
+            atr_dist = round(current_atr * self.settings.atr_trail_distance_multiplier, 2)
+            # Floor: не меньше значений из config
+            act_pct = max(self.settings.trailing_activation_pct, atr_act)
+            dist_pct = max(self.settings.trailing_distance_pct, atr_dist)
+            # Ceiling: distance не больше activation - 0.5% (гарантия прибыли)
+            dist_pct = min(dist_pct, act_pct - 0.5)
+            params = {
+                'activation_pct': act_pct,
+                'distance_pct': dist_pct,
+                'mode': 'atr_adaptive',
+                'learned': False
+            }
+            logger.info(f"[TRAILING] {symbol}: ATR-ADAPTIVE, ATR={current_atr:.2f}%, activation={act_pct}%, distance={dist_pct}%")
+            return params
+
+        # Фиксированный режим
         if not self.settings.adaptive_trailing_enabled:
             params = {
                 'activation_pct': self.settings.trailing_activation_pct,
@@ -1071,16 +1098,16 @@ class VirtualTrader:
             entry_price = float(signal['entry_price'])
             atr_percent = signal.get('atr_percent', 0)
             
-            # ========== v6.1: ATR-АДАПТИВНЫЙ SL ==========
-            # SL = max(settings.stop_loss_pct, ATR × 2.0) — не входить тесней шума монеты
+            # ========== v6.2: ATR-АДАПТИВНЫЙ SL ==========
             tp_pct = self.settings.take_profit_pct
-            if atr_percent > 0:
+            if self.settings.atr_adaptive_sl and atr_percent > 0:
+                atr_sl = round(atr_percent * self.settings.atr_sl_multiplier, 2)
+                sl_pct = max(self.settings.stop_loss_pct, atr_sl)
+                logger.info(f"[TRADER] {symbol}: ATR-SL={sl_pct}% (ATR={atr_percent:.2f}% × {self.settings.atr_sl_multiplier}, floor={self.settings.stop_loss_pct}%)")
+            elif atr_percent > 0:
                 atr_sl = round(atr_percent * 2.0, 2)
                 sl_pct = max(self.settings.stop_loss_pct, atr_sl)
-                if sl_pct > atr_sl:
-                    logger.info(f"[TRADER] {symbol}: SL floor {self.settings.stop_loss_pct}% (ATR×2.0={atr_sl}%)")
-                else:
-                    logger.info(f"[TRADER] {symbol}: SL ATR-based {sl_pct}% (ATR={atr_percent:.2f}%)")
+                logger.info(f"[TRADER] {symbol}: SL={sl_pct}% (ATR={atr_percent:.2f}%, legacy mode)")
             else:
                 sl_pct = self.settings.stop_loss_pct
             
@@ -1185,7 +1212,11 @@ class VirtualTrader:
                     'atr_percent': pos.atr_percent,
                     'position_size': pos.size_usdt,
                     'leverage': pos.leverage,
-                    'trade_mode': pos.trade_mode
+                    'trade_mode': pos.trade_mode,
+                    'sl_pct_used': sl_pct,
+                    'trail_activation_used': pos.trailing_activation_pct,
+                    'trail_distance_used': pos.trailing_distance_pct,
+                    'sl_mode': adaptive_params.get('mode', 'fixed')
                 })
             except Exception as e:
                 logger.error(f"[TRADER] DB save error: {e}")
@@ -1569,7 +1600,8 @@ class VirtualTrader:
                 'close_reason': reason,
                 'atr_percent': pos.atr_percent,
                 'change_24h': pos.change_24h,
-                'side': pos.side
+                'side': pos.side,
+                'max_pnl_percent': getattr(pos, 'max_pnl_percent', 0)
             })
             
             # Сохраняем событие CLOSE в истории хода сделки
@@ -2316,10 +2348,17 @@ class VirtualTrader:
             return positions
     
     def get_closed_positions(self, limit: int = 50) -> List[Dict]:
-        """Получить закрытые позиции (новые первыми!)"""
+        """Получить закрытые позиции (новые первыми!). Если в памяти нет — из БД."""
         with self.lock:
-            # Возвращаем в обратном порядке - новые первыми
-            return [p.to_dict() for p in reversed(self.closed_positions[-limit:])]
+            if self.closed_positions:
+                return [p.to_dict() for p in reversed(self.closed_positions[-limit:])]
+            # Fallback: читаем из БД (после reset памяти)
+            try:
+                db_trades = db.get_trades(limit=limit, only_closed=True)
+                return db_trades  # уже отсортированы DESC
+            except Exception as e:
+                logger.error(f"[TRADER] DB fallback error: {e}")
+                return []
     
     def get_portfolio(self) -> Dict:
         """Получить данные портфеля"""
@@ -2530,7 +2569,12 @@ class VirtualTrader:
             self.positions.clear()
             self.closed_positions.clear()
             self.log_history.clear()
-            self.trade_counter = 0
+            # Восстанавливаем счётчик из БД чтобы не было коллизий trade_id
+            try:
+                self.trade_counter = db.get_last_trade_counter()
+                logger.info(f"[RESET] Trade counter restored from DB: {self.trade_counter}")
+            except Exception:
+                self.trade_counter = 0
             self.total_pnl = 0.0
             self.winning_trades = 0
             self.losing_trades = 0
@@ -2597,7 +2641,11 @@ class VirtualTrader:
             state = db.get_setting('trader_state', {})
             if state:
                 self.balance = state.get("balance", self.settings.initial_balance)
-                self.trade_counter = state.get("trade_counter", 0)
+                state_counter = state.get("trade_counter", 0)
+                db_counter = db.get_last_trade_counter()
+                self.trade_counter = max(state_counter, db_counter)
+                if self.trade_counter != state_counter:
+                    logger.info(f"[TRADER] Trade counter: state={state_counter}, DB={db_counter} → using {self.trade_counter}")
                 self.total_pnl = state.get("total_pnl", 0)
                 self.winning_trades = state.get("winning", 0)
                 self.losing_trades = state.get("losing", 0)

@@ -535,7 +535,12 @@ class Database:
                 'atr_percent': 'REAL DEFAULT 0',
                 'trade_mode': 'TEXT DEFAULT "PAPER"',
                 'volume_24h': 'REAL DEFAULT 0',
-                'change_24h_at_open': 'REAL DEFAULT 0'
+                'change_24h_at_open': 'REAL DEFAULT 0',
+                'sl_pct_used': 'REAL DEFAULT 0',
+                'trail_activation_used': 'REAL DEFAULT 0',
+                'trail_distance_used': 'REAL DEFAULT 0',
+                'sl_mode': 'TEXT DEFAULT "fixed"',
+                'max_pnl_percent': 'REAL DEFAULT 0'
             }
             
             for col_name, col_type in required_columns.items():
@@ -652,8 +657,8 @@ class Database:
                 entry_price, stop_loss, trailing_stop, take_profit_1, take_profit_2,
                 ai_confidence, ai_reason, ai_analysis_ru, ai_provider,
                 change_24h, change_24h_at_open, atr_percent, position_size, leverage, trade_mode,
-                volume_24h
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                volume_24h, sl_pct_used, trail_activation_used, trail_distance_used, sl_mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 trade_data.get('trade_id'),
                 trade_data.get('symbol'),
@@ -676,7 +681,11 @@ class Database:
                 trade_data.get('position_size'),
                 trade_data.get('leverage', 5),
                 trade_data.get('trade_mode', 'PAPER'),
-                trade_data.get('volume_24h', 0)
+                trade_data.get('volume_24h', 0),
+                trade_data.get('sl_pct_used', 0),
+                trade_data.get('trail_activation_used', 0),
+                trade_data.get('trail_distance_used', 0),
+                trade_data.get('sl_mode', 'fixed')
             ))
             trade_id = cur.lastrowid
             
@@ -713,7 +722,8 @@ class Database:
                 pnl_usdt = ?,
                 pnl_percent = ?,
                 close_reason = ?,
-                duration_minutes = ?
+                duration_minutes = ?,
+                max_pnl_percent = ?
             WHERE trade_id = ?
             ''', (
                 now.strftime('%Y-%m-%d %H:%M:%S'),
@@ -723,6 +733,7 @@ class Database:
                 close_data.get('pnl_percent', 0),
                 close_data.get('close_reason', 'UNKNOWN'),
                 duration,
+                close_data.get('max_pnl_percent', 0),
                 trade_id
             ))
             
