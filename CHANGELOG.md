@@ -573,3 +573,23 @@ if atr_percent > 0:
   ~ filters.btc_bearish_min_strength: 0.3 → 0.5
   ~ filters.btc_bullish_min_strength: 0.3 → 0.5
 ```
+
+## [2026-02-28 06:08] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_060812.json`
+- **Изменения:**
+```
+  ~ filters.btc_bearish_min_strength: 0.3 → 0.5
+  ~ filters.btc_bullish_min_strength: 0.3 → 0.5
+```
+
+## [2026-02-28 06:08] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_060822.json`
+- **Изменения:**
+```
+  ~ filters.btc_bearish_min_strength: 0.3 → 0.5
+  ~ filters.btc_bullish_min_strength: 0.3 → 0.5
+```
