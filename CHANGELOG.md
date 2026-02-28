@@ -625,3 +625,39 @@ if atr_percent > 0:
   + strategy.side_filter = any
   + strategy.type = vol_momentum
 ```
+
+## [2026-02-28 17:28] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_172847.json`
+- **Изменения:**
+```
+  ~ auto_backtest.auto_switch: False → True
+```
+
+## [2026-02-28 17:28] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_172850.json`
+- **Изменения:**
+```
+  ~ auto_backtest.auto_switch: False → True
+```
+
+## [2026-02-28 17:31] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_173159.json`
+- **Изменения:**
+```
+  ~ auto_backtest.auto_switch: False → True
+```
+
+## [2026-02-28 17:48] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_174805.json`
+- **Изменения:**
+```
+  ~ auto_backtest.auto_switch: False → True
+```

@@ -96,6 +96,11 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # For reverse proxy 
 def add_security_headers(response):
     # Разрешаем inline скрипты и eval для LightweightCharts
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' ; connect-src 'self';"
+    # Запрет кэширования HTML (чтобы обновления UI применялись сразу)
+    if response.content_type and 'text/html' in response.content_type:
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
     return response
 # ============================================================================
 # GLOBAL STATE MANAGEMENT

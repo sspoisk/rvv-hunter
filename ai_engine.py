@@ -1367,12 +1367,13 @@ class MockAIEngine(BaseAIEngine):
             atr = self._calc_atr(highs, lows, closes) if highs and lows else current_price * 0.02
             atr_pct = (atr / current_price * 100) if current_price > 0 else 2.0
 
-            # Объём
+            # Объём — используем предпоследнюю свечу (последняя ещё не завершена)
             volumes = data_15m.get('volume', []) if data_15m else []
             vol_ratio = 1.0
-            if volumes and len(volumes) >= 10:
-                avg_vol = sum(volumes[-20:-1]) / max(len(volumes[-20:-1]), 1)
-                vol_ratio = volumes[-1] / avg_vol if avg_vol > 0 else 1.0
+            if volumes and len(volumes) >= 12:
+                # volumes[-1] = текущая незавершённая, volumes[-2] = последняя завершённая
+                avg_vol = sum(volumes[-22:-2]) / max(len(volumes[-22:-2]), 1)
+                vol_ratio = volumes[-2] / avg_vol if avg_vol > 0 else 1.0
 
             # ═══════════════════════════════════════════
             # ENTRY FILTERS + STRATEGY CONFIG

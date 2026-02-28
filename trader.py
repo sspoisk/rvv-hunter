@@ -2378,8 +2378,12 @@ class VirtualTrader:
                 return [p.to_dict() for p in reversed(self.closed_positions[-limit:])]
             # Fallback: читаем из БД (после reset памяти)
             try:
-                db_trades = db.get_trades(limit=limit, only_closed=True)
-                return db_trades  # уже отсортированы DESC
+                db_trades = db.get_trades(limit=limit * 2, only_closed=True)
+                # Фильтруем по pnl_reset_at — показываем только сделки после сброса
+                pnl_reset_at = db.get_setting('pnl_reset_at', None)
+                if pnl_reset_at:
+                    db_trades = [t for t in db_trades if (t.get('closed_at') or '') >= pnl_reset_at]
+                return db_trades[:limit]  # уже отсортированы DESC
             except Exception as e:
                 logger.error(f"[TRADER] DB fallback error: {e}")
                 return []
