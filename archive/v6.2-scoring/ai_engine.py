@@ -1375,26 +1375,17 @@ class MockAIEngine(BaseAIEngine):
                 vol_ratio = volumes[-1] / avg_vol if avg_vol > 0 else 1.0
 
             # ═══════════════════════════════════════════
-            # ENTRY FILTERS + STRATEGY CONFIG
+            # ENTRY FILTERS (v6.4) — Parabolic + RVOL + Multi-TF
             # ═══════════════════════════════════════════
-            full_cfg = {}
             entry_filter_cfg = {}
-            strategy_cfg = {}
             try:
                 with open('config.json', 'r') as f:
-                    full_cfg = json.load(f)
-                entry_filter_cfg = full_cfg.get('entry_filters', {})
-                strategy_cfg = full_cfg.get('strategy', {})
+                    entry_filter_cfg = json.load(f).get('entry_filters', {})
             except Exception:
                 pass
 
-            strategy_type = strategy_cfg.get('type', 'vol_momentum')
-            min_rvol = strategy_cfg.get('min_rvol', 2.0)
-            min_move_pct = strategy_cfg.get('min_move_pct', 0.5)
-            lookback = strategy_cfg.get('lookback_candles', 3)
-            strategy_side_filter = strategy_cfg.get('side_filter', 'any')
-
             # --- PARABOLIC FILTER ---
+            # Пропускаем вход если последняя свеча аномально большая (вход на пике)
             is_parabolic = False
             parabolic_ratio = 0.0
             if entry_filter_cfg.get('parabolic_enabled', True) and highs and lows and len(highs) >= 16:
@@ -1408,18 +1399,30 @@ class MockAIEngine(BaseAIEngine):
                         is_parabolic = True
                         logger.info(f"[ALGO] {symbol_clean}: PARABOLIC FILTER — свеча {parabolic_ratio:.1f}x avg (>{parabolic_mult:.1f}x), пропуск")
 
+            # --- RVOL FILTER ---
+            # Пропускаем вход при слишком низком объёме (движение без подтверждения)
+            rvol_ok = True
+            if entry_filter_cfg.get('rvol_enabled', True):
+                min_rvol = entry_filter_cfg.get('min_rvol', 1.2)
+                if vol_ratio < min_rvol:
+                    rvol_ok = False
+                    logger.debug(f"[ALGO] {symbol_clean}: RVOL={vol_ratio:.2f} < {min_rvol} — низкий объём")
+
             # --- MULTI-TF TREND FILTER ---
-            trend_1h = None
+            # Проверяем EMA-тренд на 1h: не входить против тренда старшего ТФ
+            trend_1h = None  # "UP", "DOWN" или None (нет данных / нейтрально)
             if entry_filter_cfg.get('multi_tf_enabled', True):
                 data_1h = ohlcv.get('1h', {}) if ohlcv else {}
                 closes_1h = data_1h.get('close', []) if data_1h else []
                 ema_period = entry_filter_cfg.get('multi_tf_ema_period', 20)
                 if closes_1h and len(closes_1h) >= ema_period:
+                    # EMA расчёт
                     ema = closes_1h[0]
                     k = 2 / (ema_period + 1)
                     for c in closes_1h[1:]:
                         ema = c * k + ema * (1 - k)
                     price_1h = closes_1h[-1]
+                    # Тренд определяем по позиции цены относительно EMA
                     ema_diff_pct = (price_1h - ema) / ema * 100 if ema > 0 else 0
                     if ema_diff_pct > 0.3:
                         trend_1h = "UP"
@@ -1427,104 +1430,86 @@ class MockAIEngine(BaseAIEngine):
                         trend_1h = "DOWN"
 
             # ═══════════════════════════════════════════
-            # STRATEGY: VOL_MOMENTUM или SCORING (fallback)
+            # SCORING SYSTEM — каждый индикатор голосует
+            # Положительный = SHORT, отрицательный = LONG
             # ═══════════════════════════════════════════
             score = 0
             signals = []
+
+            # 1. RSI (основной сигнал, вес 3)
+            if rsi >= 75:
+                score += 3
+                signals.append(f"RSI={rsi:.0f} сильно перекуплен")
+            elif rsi >= 70:
+                score += 2
+                signals.append(f"RSI={rsi:.0f} перекуплен")
+            elif rsi <= 25:
+                score -= 3
+                signals.append(f"RSI={rsi:.0f} сильно перепродан")
+            elif rsi <= 30:
+                score -= 2
+                signals.append(f"RSI={rsi:.0f} перепродан")
+
+            # 2. Bollinger %B (вес 2)
+            if bb_pct is not None:
+                if bb_pct >= 95:
+                    score += 2
+                    signals.append(f"BB%={bb_pct:.0f} у верхней полосы")
+                elif bb_pct >= 80:
+                    score += 1
+                    signals.append(f"BB%={bb_pct:.0f} выше среднего")
+                elif bb_pct <= 5:
+                    score -= 2
+                    signals.append(f"BB%={bb_pct:.0f} у нижней полосы")
+                elif bb_pct <= 20:
+                    score -= 1
+                    signals.append(f"BB%={bb_pct:.0f} ниже среднего")
+
+            # 3. MACD histogram (вес 1) — подтверждение
+            if macd_hist != 0:
+                # Для SHORT: MACD hist должен быть отрицательным (разворот вниз)
+                # или положительный но уменьшающийся
+                if macd_hist < 0 and score > 0:
+                    score += 1
+                    signals.append(f"MACD подтверждает разворот вниз")
+                elif macd_hist > 0 and score < 0:
+                    score += -1
+                    signals.append(f"MACD подтверждает разворот вверх")
+
+            # 4. 24h change как контекст (вес 1)
+            if change_24h >= 8:
+                score += 1
+                signals.append(f"Памп +{change_24h:.1f}%")
+            elif change_24h <= -8:
+                score -= 1
+                signals.append(f"Дамп {change_24h:.1f}%")
+
+            # ═══════════════════════════════════════════
+            # РЕШЕНИЕ
+            # ═══════════════════════════════════════════
             action = "WAIT"
             confidence = 50.0
 
-            if strategy_type == 'vol_momentum':
-                # ── VOL_MOMENTUM: volume spike + trend continuation ──
-                # 1. Check RVOL
-                rvol_ok = vol_ratio >= min_rvol
-                if not rvol_ok:
-                    signals.append(f"RVOL={vol_ratio:.1f}x < {min_rvol}x — нет спайка")
-                else:
-                    signals.append(f"RVOL={vol_ratio:.1f}x ✅ (мин {min_rvol}x)")
-
-                    # 2. Direction: close[now] vs close[now - lookback]
-                    if len(closes) > lookback:
-                        move_pct = (closes[-1] - closes[-1 - lookback]) / closes[-1 - lookback] * 100
-                    else:
-                        move_pct = 0.0
-
-                    if abs(move_pct) < min_move_pct:
-                        signals.append(f"Move={move_pct:+.2f}% < {min_move_pct}% — слабое движение")
-                    else:
-                        # 3. Momentum: follow the direction
-                        if move_pct > 0:
-                            action = "LONG"
-                            signals.append(f"Move=+{move_pct:.2f}% → LONG (momentum)")
-                        else:
-                            action = "SHORT"
-                            signals.append(f"Move={move_pct:.2f}% → SHORT (momentum)")
-                        confidence = min(60 + vol_ratio * 5, 95)
-
-                    # Side filter from strategy config
-                    if action != "WAIT" and strategy_side_filter != 'any':
-                        if strategy_side_filter == 'short_only' and action == 'LONG':
-                            action = "WAIT"
-                            signals.append("⛔ Side filter: short_only")
-                        elif strategy_side_filter == 'long_only' and action == 'SHORT':
-                            action = "WAIT"
-                            signals.append("⛔ Side filter: long_only")
-            else:
-                # ── SCORING (legacy mean-reversion) ──
-                # RSI (вес 3)
-                if rsi >= 75:
-                    score += 3
-                    signals.append(f"RSI={rsi:.0f} сильно перекуплен")
-                elif rsi >= 70:
-                    score += 2
-                    signals.append(f"RSI={rsi:.0f} перекуплен")
-                elif rsi <= 25:
-                    score -= 3
-                    signals.append(f"RSI={rsi:.0f} сильно перепродан")
-                elif rsi <= 30:
-                    score -= 2
-                    signals.append(f"RSI={rsi:.0f} перепродан")
-
-                # BB %B (вес 2)
-                if bb_pct is not None:
-                    if bb_pct >= 95:
-                        score += 2
-                    elif bb_pct >= 80:
-                        score += 1
-                    elif bb_pct <= 5:
-                        score -= 2
-                    elif bb_pct <= 20:
-                        score -= 1
-
-                # MACD (вес 1)
-                if macd_hist != 0:
-                    if macd_hist < 0 and score > 0:
-                        score += 1
-                    elif macd_hist > 0 and score < 0:
-                        score -= 1
-
-                # 24h change (вес 1)
-                if change_24h >= 8:
-                    score += 1
-                elif change_24h <= -8:
-                    score -= 1
-
-                if score >= 3:
-                    action = "SHORT"
-                    confidence = min(55 + score * 5, 95)
-                elif score <= -3:
-                    action = "LONG"
-                    confidence = min(55 + abs(score) * 5, 95)
+            # Минимум 3 очка для сигнала (RSI + хотя бы 1 подтверждение)
+            if score >= 3:
+                action = "SHORT"
+                confidence = min(55 + score * 5, 95)
+            elif score <= -3:
+                action = "LONG"
+                confidence = min(55 + abs(score) * 5, 95)
 
             # ═══════════════════════════════════════════
-            # ENTRY FILTERS — отклоняем сигнал если фильтры не прошли
+            # ENTRY FILTERS v6.4 — отклоняем сигнал если фильтры не прошли
             # ═══════════════════════════════════════════
             filter_reject_reason = None
             if action != "WAIT":
-                # 1. Parabolic filter
+                # 1. Parabolic filter — вход на пике
                 if is_parabolic:
                     filter_reject_reason = f"PARABOLIC: свеча {parabolic_ratio:.1f}x средней"
-                # 2. Multi-TF — против тренда 1h
+                # 2. RVOL — нет объёма
+                elif not rvol_ok:
+                    filter_reject_reason = f"LOW RVOL: {vol_ratio:.2f}x (мин {entry_filter_cfg.get('min_rvol', 1.2)})"
+                # 3. Multi-TF — против тренда 1h
                 elif trend_1h is not None:
                     if action == "LONG" and trend_1h == "DOWN":
                         filter_reject_reason = f"TREND 1H: DOWN — LONG против тренда"
@@ -1532,7 +1517,7 @@ class MockAIEngine(BaseAIEngine):
                         filter_reject_reason = f"TREND 1H: UP — SHORT против тренда"
 
             if filter_reject_reason:
-                logger.info(f"[ALGO] {symbol_clean}: {action} ОТКЛОНЁН → {filter_reject_reason}")
+                logger.info(f"[ALGO] {symbol_clean}: {action} score={score:+d} ОТКЛОНЁН → {filter_reject_reason}")
                 action = "WAIT"
                 confidence = 50.0
                 signals.append(f"⛔ {filter_reject_reason}")
@@ -1580,26 +1565,15 @@ class MockAIEngine(BaseAIEngine):
                 btc_info = f" | BTC: {t} ({s})"
 
             # Строка фильтров для отображения
-            filter_status = f"Parab={'⛔' if is_parabolic else '✅'}{parabolic_ratio:.1f}x | Trend1h={'⛔' if filter_reject_reason and 'TREND' in filter_reject_reason else '✅'}{trend_1h or '—'}"
+            filter_status = f"Parab={'⛔' if is_parabolic else '✅'}{parabolic_ratio:.1f}x | RVOL={'⛔' if not rvol_ok else '✅'}{vol_ratio:.1f}x | Trend1h={'⛔' if filter_reject_reason and 'TREND' in filter_reject_reason else '✅'}{trend_1h or '—'}"
 
             if action != "WAIT":
                 emoji = "🔴" if action == "SHORT" else "🟢"
                 signal_list = "\n".join(f"  • {s}" for s in signals)
-                if strategy_type == 'vol_momentum':
-                    move_pct_val = 0.0
-                    if len(closes) > lookback:
-                        move_pct_val = (closes[-1] - closes[-1 - lookback]) / closes[-1 - lookback] * 100
-                    analysis_ru = f"""{emoji} VOL_MOMENTUM {action}: {symbol_clean}{btc_info}
-RVOL: {vol_ratio:.1f}x | Move: {move_pct_val:+.2f}% | Conf: {confidence:.0f}%
-📊 Индикаторы:
-  RSI={rsi:.1f} | BB%B={bb_pct:.0f} | ATR={atr_pct:.2f}% | 24h={change_24h:+.1f}%
-🔒 Фильтры: {filter_status}
-📋 Сигналы:
-{signal_list}"""
-                else:
-                    analysis_ru = f"""{emoji} SCORING {action}: {symbol_clean}{btc_info}
+                analysis_ru = f"""{emoji} ALGO {action}: {symbol_clean}{btc_info}
 Score: {score:+d}/7 | Confidence: {confidence:.0f}%
-📊 RSI={rsi:.1f} | BB%B={bb_pct:.0f} | MACD={'+'if macd_hist>0 else ''}{macd_hist:.6f}
+📊 Индикаторы:
+  RSI(14)={rsi:.1f} | BB%B={bb_pct:.0f} | MACD hist={'+'if macd_hist>0 else ''}{macd_hist:.6f}
   ATR={atr_pct:.2f}% | Vol={vol_ratio:.1f}x | 24h={change_24h:+.1f}%
 🔒 Фильтры: {filter_status}
 📋 Сигналы:
@@ -1607,10 +1581,11 @@ Score: {score:+d}/7 | Confidence: {confidence:.0f}%
             else:
                 reject_info = f"\n  ⛔ {filter_reject_reason}" if filter_reject_reason else ""
                 analysis_ru = f"""⚪ ALGO WAIT: {symbol_clean}{btc_info}
-Strategy: {strategy_type} | RVOL={vol_ratio:.1f}x | RSI={rsi:.1f}
+Score: {score:+d}/7 — {'отклонён фильтром' if filter_reject_reason else 'недостаточно для входа'}
+  RSI={rsi:.1f} | BB%B={bb_pct:.0f} | 24h={change_24h:+.1f}%
   🔒 {filter_status}{reject_info}"""
 
-            logger.info(f"[ALGO] {symbol_clean}: {action} strategy={strategy_type} RVOL={vol_ratio:.1f}x RSI={rsi:.0f}")
+            logger.info(f"[ALGO] {symbol_clean}: {action} score={score:+d} RSI={rsi:.0f} BB%={bb_pct:.0f} MACD={'+'if macd_hist>0 else ''}{macd_hist:.4f}")
 
             return {
                 'symbol': symbol,
@@ -1621,9 +1596,9 @@ Strategy: {strategy_type} | RVOL={vol_ratio:.1f}x | RSI={rsi:.1f}
                 'take_profit': [tp1, tp2],
                 'change_24h': change_24h,
                 'timestamp': datetime.utcnow().isoformat(),
-                'reason': f'{strategy_type} RVOL={vol_ratio:.1f}x score={score:+d} RSI={rsi:.0f}',
+                'reason': f'Algo score={score:+d} (RSI={rsi:.0f}, BB%={bb_pct:.0f}, MACD={macd_hist:+.4f})',
                 'analysis_ru': analysis_ru,
-                'analysis_raw': f'strategy={strategy_type} rvol={vol_ratio:.1f} score={score} rsi={rsi:.1f}',
+                'analysis_raw': f'score={score} rsi={rsi:.1f} bb_pct={bb_pct:.1f} macd_hist={macd_hist:.6f}',
                 'atr': atr,
                 'atr_percent': atr_pct,
                 'rsi_15m': rsi,

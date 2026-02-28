@@ -225,12 +225,6 @@ class Settings:
     # ═══ SPREAD CHECK v5.0 ═══
     spread_check_enabled: bool = True  # Проверять спред перед входом
     max_spread_pct: float = 0.5  # Максимальный спред в % (0.5% = 50 пунктов на $10000)
-    # ═══ STRATEGY v7.0 ═══
-    strategy_type: str = "vol_momentum"  # vol_momentum, scoring
-    strategy_min_rvol: float = 2.0       # Минимальный RVOL для входа
-    strategy_min_move_pct: float = 0.5   # Минимальное движение %
-    strategy_lookback: int = 3           # Lookback свечей для направления
-    strategy_side_filter: str = "any"    # any, short_only, long_only
     
     def to_dict(self):
         return asdict(self)
@@ -340,24 +334,6 @@ class VirtualTrader:
                 self._save_state()
                 logger.info(f"[TRADER] Synced from config.json: SL={self.settings.stop_loss_pct}%, TP={self.settings.take_profit_pct}%")
             
-            # Синхронизируем стратегию (v7.0)
-            strategy = config.get('strategy', {})
-            if strategy:
-                strat_mapping = {
-                    'type': 'strategy_type',
-                    'min_rvol': 'strategy_min_rvol',
-                    'min_move_pct': 'strategy_min_move_pct',
-                    'lookback_candles': 'strategy_lookback',
-                    'side_filter': 'strategy_side_filter',
-                }
-                for config_key, settings_key in strat_mapping.items():
-                    if config_key in strategy:
-                        old_val = getattr(self.settings, settings_key, None)
-                        new_val = strategy[config_key]
-                        if old_val != new_val:
-                            setattr(self.settings, settings_key, new_val)
-                            print(f"[TRADER] ✅ {settings_key}: {old_val} → {new_val} (from config.json)")
-
             # Синхронизируем фильтры
             filters = config.get('filters', {})
             if filters:

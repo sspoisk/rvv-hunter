@@ -448,6 +448,208 @@ def compute_signals_5m(candles_5m: List[Dict], entry_filters: Dict, score_thresh
     return signals
 
 
+# ─── Alternative Signal Strategies ────────────────────────────────────────
+
+def compute_signals_rsi_only(candles_5m: List[Dict], entry_filters: Dict) -> List[Dict]:
+    """Стратегия A: Только RSI. RSI>75→SHORT, RSI<25→LONG."""
+    if len(candles_5m) < 50:
+        return []
+    closes = [c['close'] for c in candles_5m]
+    highs = [c['high'] for c in candles_5m]
+    lows = [c['low'] for c in candles_5m]
+    rsi_values = calculate_rsi(closes, 14)
+    atr_values = []
+    for i in range(len(candles_5m)):
+        atr_values.append(calculate_atr(highs[:i+1], lows[:i+1], closes[:i+1], 14))
+
+    signals = []
+    for i in range(50, len(candles_5m)):
+        rsi = rsi_values[i] if i < len(rsi_values) else 50
+        atr_pct = (atr_values[i] / closes[i] * 100) if closes[i] > 0 else 2.0
+        action = "WAIT"
+        if rsi >= 75:
+            action = "SHORT"
+        elif rsi <= 25:
+            action = "LONG"
+        if action != "WAIT":
+            signals.append({
+                'ts': candles_5m[i]['timestamp'], 'action': action,
+                'score': 0, 'confidence': 70, 'atr_pct': atr_pct,
+                'rsi': rsi, 'bb_pct': 50, 'change_24h': 0, 'price': closes[i],
+            })
+    return signals
+
+
+def compute_signals_bb_only(candles_5m: List[Dict], entry_filters: Dict) -> List[Dict]:
+    """Стратегия B: Только Bollinger Bands. BB%B>95→SHORT, BB%B<5→LONG."""
+    if len(candles_5m) < 50:
+        return []
+    closes = [c['close'] for c in candles_5m]
+    highs = [c['high'] for c in candles_5m]
+    lows = [c['low'] for c in candles_5m]
+
+    signals = []
+    for i in range(50, len(candles_5m)):
+        bb_pct = calculate_bollinger(closes[:i+1], 20)
+        atr = calculate_atr(highs[:i+1], lows[:i+1], closes[:i+1], 14)
+        atr_pct = (atr / closes[i] * 100) if closes[i] > 0 else 2.0
+        action = "WAIT"
+        if bb_pct >= 95:
+            action = "SHORT"
+        elif bb_pct <= 5:
+            action = "LONG"
+        if action != "WAIT":
+            signals.append({
+                'ts': candles_5m[i]['timestamp'], 'action': action,
+                'score': 0, 'confidence': 70, 'atr_pct': atr_pct,
+                'rsi': 50, 'bb_pct': bb_pct, 'change_24h': 0, 'price': closes[i],
+            })
+    return signals
+
+
+def compute_signals_momentum(candles_5m: List[Dict], entry_filters: Dict) -> List[Dict]:
+    """Стратегия C: Momentum (trend-following). RSI>60 + MACD>0 → LONG, RSI<40 + MACD<0 → SHORT."""
+    if len(candles_5m) < 50:
+        return []
+    closes = [c['close'] for c in candles_5m]
+    highs = [c['high'] for c in candles_5m]
+    lows = [c['low'] for c in candles_5m]
+    rsi_values = calculate_rsi(closes, 14)
+
+    signals = []
+    for i in range(50, len(candles_5m)):
+        rsi = rsi_values[i] if i < len(rsi_values) else 50
+        _, _, macd_hist = calculate_macd(closes[:i+1])
+        atr = calculate_atr(highs[:i+1], lows[:i+1], closes[:i+1], 14)
+        atr_pct = (atr / closes[i] * 100) if closes[i] > 0 else 2.0
+
+        # EMA trend: price above EMA(20) = uptrend
+        ema20 = calculate_ema(closes[max(0, i-30):i+1], 20)
+        above_ema = closes[i] > ema20 if ema20 else False
+
+        action = "WAIT"
+        if rsi > 60 and macd_hist > 0 and above_ema:
+            action = "LONG"
+        elif rsi < 40 and macd_hist < 0 and not above_ema:
+            action = "SHORT"
+        if action != "WAIT":
+            signals.append({
+                'ts': candles_5m[i]['timestamp'], 'action': action,
+                'score': 0, 'confidence': 70, 'atr_pct': atr_pct,
+                'rsi': rsi, 'bb_pct': 50, 'change_24h': 0, 'price': closes[i],
+            })
+    return signals
+
+
+def compute_signals_volume_spike(candles_5m: List[Dict], entry_filters: Dict) -> List[Dict]:
+    """Стратегия D: Volume spike + direction. RVOL>2x + направление по последним 3 свечам."""
+    if len(candles_5m) < 50:
+        return []
+    closes = [c['close'] for c in candles_5m]
+    highs = [c['high'] for c in candles_5m]
+    lows = [c['low'] for c in candles_5m]
+    volumes = [c['volume'] for c in candles_5m]
+
+    signals = []
+    for i in range(50, len(candles_5m)):
+        atr = calculate_atr(highs[:i+1], lows[:i+1], closes[:i+1], 14)
+        atr_pct = (atr / closes[i] * 100) if closes[i] > 0 else 2.0
+
+        # Volume ratio
+        avg_vol = sum(volumes[max(0, i-20):i]) / max(min(20, i), 1)
+        if avg_vol <= 0:
+            continue
+        vol_ratio = volumes[i] / avg_vol
+        if vol_ratio < 2.0:
+            continue
+
+        # Direction: last 3 candles
+        if i < 3:
+            continue
+        direction = closes[i] - closes[i-3]
+        pct_move = abs(direction) / closes[i-3] * 100 if closes[i-3] > 0 else 0
+        if pct_move < 0.5:  # need at least 0.5% move
+            continue
+
+        action = "WAIT"
+        if direction > 0:
+            # Price went up with volume → mean reversion SHORT
+            action = "SHORT"
+        else:
+            # Price went down with volume → mean reversion LONG
+            action = "LONG"
+
+        if action != "WAIT":
+            signals.append({
+                'ts': candles_5m[i]['timestamp'], 'action': action,
+                'score': 0, 'confidence': 70, 'atr_pct': atr_pct,
+                'rsi': 50, 'bb_pct': 50, 'change_24h': 0, 'price': closes[i],
+            })
+    return signals
+
+
+def compute_signals_volume_momentum(candles_5m: List[Dict], entry_filters: Dict) -> List[Dict]:
+    """Стратегия E: Volume spike + momentum (trend-following). RVOL>2x → продолжение движения."""
+    if len(candles_5m) < 50:
+        return []
+    closes = [c['close'] for c in candles_5m]
+    highs = [c['high'] for c in candles_5m]
+    lows = [c['low'] for c in candles_5m]
+    volumes = [c['volume'] for c in candles_5m]
+
+    signals = []
+    for i in range(50, len(candles_5m)):
+        atr = calculate_atr(highs[:i+1], lows[:i+1], closes[:i+1], 14)
+        atr_pct = (atr / closes[i] * 100) if closes[i] > 0 else 2.0
+
+        avg_vol = sum(volumes[max(0, i-20):i]) / max(min(20, i), 1)
+        if avg_vol <= 0:
+            continue
+        vol_ratio = volumes[i] / avg_vol
+        if vol_ratio < 2.0:
+            continue
+
+        if i < 3:
+            continue
+        direction = closes[i] - closes[i-3]
+        pct_move = abs(direction) / closes[i-3] * 100 if closes[i-3] > 0 else 0
+        if pct_move < 0.5:
+            continue
+
+        action = "WAIT"
+        if direction > 0:
+            action = "LONG"  # momentum: follow the move
+        else:
+            action = "SHORT"
+
+        if action != "WAIT":
+            signals.append({
+                'ts': candles_5m[i]['timestamp'], 'action': action,
+                'score': 0, 'confidence': 70, 'atr_pct': atr_pct,
+                'rsi': 50, 'bb_pct': 50, 'change_24h': 0, 'price': closes[i],
+            })
+    return signals
+
+
+STRATEGY_MAP = {
+    'scoring': None,  # default, uses compute_signals_5m
+    'rsi_only': compute_signals_rsi_only,
+    'bb_only': compute_signals_bb_only,
+    'momentum': compute_signals_momentum,
+    'vol_reversal': compute_signals_volume_spike,
+    'vol_momentum': compute_signals_volume_momentum,
+}
+
+STRATEGY_NAMES = {
+    'scoring': 'Scoring (RSI+BB+MACD, score≥3)',
+    'rsi_only': 'A: RSI only (>75/< 25)',
+    'bb_only': 'B: BB only (%B>95/<5)',
+    'momentum': 'C: Momentum (RSI+MACD+EMA trend-follow)',
+    'vol_reversal': 'D: Volume spike + reversal',
+    'vol_momentum': 'E: Volume spike + momentum',
+}
+
+
 # ─── Trade Simulation (1m resolution) ──────────────────────────────────────
 
 def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
@@ -461,6 +663,9 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
                     commission_pct: float = 0.08, slippage_pct: float = 0.05,
                     max_positions: int = 10,
                     btc_trends: Dict = None, btc_modes: Dict = None,
+                    side_filter: str = 'any',  # 'any', 'long_only', 'short_only'
+                    breakeven_pct: float = 0.0,  # move SL to entry after +X%
+                    time_stop_minutes: int = 0,  # close after N minutes if flat
                     ) -> Dict:
     """Симулировать сделки: вход по сигналам (5m scoring), выход проверяется на каждой 1m свече."""
 
@@ -474,6 +679,12 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
 
     # Sort signals by time
     sorted_signals = sorted(signals, key=lambda s: s['ts'])
+
+    # Apply side filter
+    if side_filter == 'short_only':
+        sorted_signals = [s for s in sorted_signals if s['action'] == 'SHORT']
+    elif side_filter == 'long_only':
+        sorted_signals = [s for s in sorted_signals if s['action'] == 'LONG']
 
     min_trail_profit_pct = max(0.3, trailing_activation_pct - trailing_distance_pct)
 
@@ -574,6 +785,7 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
         sl = pos['sl']
         tp = pos['tp']
         trailing_active = False
+        breakeven_moved = False
         best_price = entry_price
         actual_trail_act = pos['trail_act_used']
         actual_trail_dist = pos['trail_dist_used']
@@ -588,6 +800,20 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
             c = candles_1m[j]
             high = c['high']
             low = c['low']
+            elapsed_min = (c['timestamp'] - pos['entry_ts']) / 60000
+
+            # Time stop: close if position is flat after N minutes
+            if time_stop_minutes > 0 and elapsed_min >= time_stop_minutes:
+                mid = (high + low) / 2
+                if side == 'SHORT':
+                    flat_pnl = (entry_price - mid) / entry_price * 100
+                else:
+                    flat_pnl = (mid - entry_price) / entry_price * 100
+                if abs(flat_pnl) < 0.3:  # within ±0.3% = flat
+                    close_reason = 'TIME_STOP'
+                    close_price = mid
+                    close_ts = c['timestamp']
+                    break
 
             # Track best price & trailing
             if side == 'SHORT':
@@ -596,6 +822,12 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
 
                 if low < best_price:
                     best_price = low
+
+                # Break-even stop: move SL to entry after +X%
+                if breakeven_pct > 0 and not breakeven_moved and not trailing_active:
+                    if current_profit_pct >= breakeven_pct:
+                        sl = entry_price  # move SL to breakeven
+                        breakeven_moved = True
 
                 if current_profit_pct >= actual_trail_act and not trailing_active:
                     trailing_active = True
@@ -611,7 +843,12 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
                 # Check exit
                 if high >= sl:
                     actual_pnl_pct = (entry_price - sl) / entry_price * 100
-                    close_reason = 'TRAILING_STOP' if trailing_active else 'STOP_LOSS'
+                    if trailing_active:
+                        close_reason = 'TRAILING_STOP'
+                    elif breakeven_moved:
+                        close_reason = 'BREAKEVEN'
+                    else:
+                        close_reason = 'STOP_LOSS'
                     close_price = sl
                     close_ts = c['timestamp']
                     break
@@ -627,6 +864,12 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
                 if high > best_price:
                     best_price = high
 
+                # Break-even stop
+                if breakeven_pct > 0 and not breakeven_moved and not trailing_active:
+                    if current_profit_pct >= breakeven_pct:
+                        sl = entry_price
+                        breakeven_moved = True
+
                 if current_profit_pct >= actual_trail_act and not trailing_active:
                     trailing_active = True
                     new_sl = best_price * (1 - actual_trail_dist / 100)
@@ -641,7 +884,12 @@ def simulate_trades(candles_1m: List[Dict], signals: List[Dict],
                 # Check exit
                 if low <= sl:
                     actual_pnl_pct = (sl - entry_price) / entry_price * 100
-                    close_reason = 'TRAILING_STOP' if trailing_active else 'STOP_LOSS'
+                    if trailing_active:
+                        close_reason = 'TRAILING_STOP'
+                    elif breakeven_moved:
+                        close_reason = 'BREAKEVEN'
+                    else:
+                        close_reason = 'STOP_LOSS'
                     close_price = sl
                     close_ts = c['timestamp']
                     break
@@ -738,6 +986,10 @@ def run_backtest(candles_1m_all: Dict[str, List[Dict]],
                  trail_act_override: float = None, trail_dist_override: float = None,
                  btc_trends: Dict = None, btc_modes: Dict = None,
                  score_threshold: int = 3,
+                 strategy: str = 'scoring',
+                 side_filter: str = 'any',
+                 breakeven_pct: float = 0.0,
+                 time_stop_minutes: int = 0,
                  ) -> Dict:
     """Прогнать бэктест на всех символах."""
     trading = cfg.get('trading', {})
@@ -765,7 +1017,10 @@ def run_backtest(candles_1m_all: Dict[str, List[Dict]],
         c5m = candles_5m_all[sym]
 
         # Compute signals on 5m
-        signals = compute_signals_5m(c5m, entry_filters, score_threshold=score_threshold)
+        if strategy == 'scoring' or strategy not in STRATEGY_MAP:
+            signals = compute_signals_5m(c5m, entry_filters, score_threshold=score_threshold)
+        else:
+            signals = STRATEGY_MAP[strategy](c5m, entry_filters)
         if not signals:
             continue
 
@@ -782,6 +1037,9 @@ def run_backtest(candles_1m_all: Dict[str, List[Dict]],
             atr_trail_dist_mult=atr_trail_dist_mult,
             max_positions=999,  # per-symbol no limit, global limit below
             btc_trends=btc_trends, btc_modes=btc_modes,
+            side_filter=side_filter,
+            breakeven_pct=breakeven_pct,
+            time_stop_minutes=time_stop_minutes,
         )
 
         for td in result.get('trade_details', []):
@@ -846,6 +1104,8 @@ def run_backtest(candles_1m_all: Dict[str, List[Dict]],
             'sl': sl_pct, 'tp': tp_pct,
             'trail_act': trail_act, 'trail_dist': trail_dist,
             'score_threshold': score_threshold,
+            'strategy': strategy, 'side_filter': side_filter,
+            'breakeven_pct': breakeven_pct, 'time_stop_min': time_stop_minutes,
         },
         'trade_details': all_trades,
     }
@@ -854,38 +1114,36 @@ def run_backtest(candles_1m_all: Dict[str, List[Dict]],
 # ─── Grid Search ────────────────────────────────────────────────────────────
 
 def grid_search(candles_1m_all, candles_5m_all, cfg, btc_trends, btc_modes):
-    """Grid search по SL/TP/Trail/Score threshold."""
+    """Grid search по SL/TP/Score threshold (trailing фиксирован из config)."""
     sl_values = [0.5, 0.8, 1.0, 1.5, 2.0]
     tp_values = [3.0, 4.0, 5.0, 7.75]
-    trail_act_values = [1.5, 2.0, 3.0]
-    trail_dist_values = [0.3, 0.4, 0.6]
     score_thresholds = [3, 4, 5]
 
     combos = []
-    for sl, tp, ta, td, st in product(sl_values, tp_values, trail_act_values, trail_dist_values, score_thresholds):
-        if tp <= sl or tp <= ta:
+    for sl, tp, st in product(sl_values, tp_values, score_thresholds):
+        if tp <= sl:
             continue
-        combos.append((sl, tp, ta, td, st))
+        combos.append((sl, tp, st))
 
     total = len(combos)
-    print(f"\n[GRID] {total} комбинаций SL×TP×Trail×ScoreThreshold")
+    print(f"\n[GRID] {total} комбинаций SL×TP×ScoreThreshold")
 
     results = []
-    for idx, (sl, tp, ta, td, st) in enumerate(combos):
+    for idx, (sl, tp, st) in enumerate(combos):
         r = run_backtest(candles_1m_all, candles_5m_all, cfg,
                          sl_override=sl, tp_override=tp,
-                         trail_act_override=ta, trail_dist_override=td,
                          btc_trends=btc_trends, btc_modes=btc_modes,
                          score_threshold=st)
         results.append({
-            'sl': sl, 'tp': tp, 'trail_act': ta, 'trail_dist': td,
+            'sl': sl, 'tp': tp, 'trail_act': r['params']['trail_act'],
+            'trail_dist': r['params']['trail_dist'],
             'score_thr': st,
             'trades': r['trades'], 'wins': r['wins'],
             'win_rate': r['win_rate'], 'pnl': r['pnl'],
             'trailing_wins': r['trailing_wins'],
         })
-        if (idx + 1) % 20 == 0:
-            print(f"  {idx + 1}/{total}...")
+        if (idx + 1) % 10 == 0:
+            print(f"  {idx + 1}/{total}...", flush=True)
 
     results.sort(key=lambda x: x['pnl'], reverse=True)
     return results
@@ -938,6 +1196,13 @@ def main():
     parser.add_argument('--trail-act', type=float, help='Override trailing activation%%')
     parser.add_argument('--trail-dist', type=float, help='Override trailing distance%%')
     parser.add_argument('--grid', action='store_true', help='Grid search SL/TP')
+    parser.add_argument('--compare', action='store_true', help='Сравнить все стратегии входа')
+    parser.add_argument('--strategy', type=str, default='scoring', choices=list(STRATEGY_MAP.keys()),
+                        help='Стратегия входа')
+    parser.add_argument('--side', type=str, default='any', choices=['any', 'short_only', 'long_only'],
+                        help='Фильтр стороны')
+    parser.add_argument('--breakeven', type=float, default=0.0, help='Break-even stop после +X%%')
+    parser.add_argument('--time-stop', type=int, default=0, help='Time stop после N минут')
     parser.add_argument('--no-cache', action='store_true', help='Игнорировать кэш')
     args = parser.parse_args()
 
@@ -999,18 +1264,84 @@ def main():
         print(f"  BTC тренды: {len(btc_trends)} точек")
 
     # Run backtest
-    print(f"\n[3] Бэктест (scoring на 5m, SL/TP на 1m)...")
+    print(f"\n[3] Бэктест (strategy={args.strategy}, side={args.side})...")
     t0 = time.time()
     result = run_backtest(
         candles_1m_all, candles_5m_all, cfg,
         sl_override=args.sl, tp_override=args.tp,
         trail_act_override=args.trail_act, trail_dist_override=args.trail_dist,
         btc_trends=btc_trends, btc_modes=btc_modes,
+        strategy=args.strategy, side_filter=args.side,
+        breakeven_pct=args.breakeven, time_stop_minutes=args.time_stop,
     )
     elapsed = time.time() - t0
     print(f"  Завершён за {elapsed:.1f}с")
 
     print_result(result, "BASELINE (текущие настройки)")
+
+    # Compare all strategies
+    if args.compare:
+        print(f"\n[4] Сравнение стратегий...")
+        t0 = time.time()
+        strategies_results = []
+
+        # Each strategy × side × breakeven combos
+        sides = ['any', 'short_only']
+        be_values = [0.0, 0.5, 1.0]
+        ts_values = [0, 240]  # 0 = off, 240 min = 4h
+
+        combos = []
+        for strat in STRATEGY_MAP:
+            for side in sides:
+                for be in be_values:
+                    for ts in ts_values:
+                        combos.append((strat, side, be, ts))
+
+        total = len(combos)
+        print(f"  {total} комбинаций (стратегия × сторона × BE × TimeStop)")
+
+        for idx, (strat, side, be, ts) in enumerate(combos):
+            r = run_backtest(
+                candles_1m_all, candles_5m_all, cfg,
+                sl_override=args.sl, tp_override=args.tp,
+                btc_trends=btc_trends, btc_modes=btc_modes,
+                strategy=strat, side_filter=side,
+                breakeven_pct=be, time_stop_minutes=ts,
+            )
+            strategies_results.append({
+                'strategy': strat, 'side': side,
+                'be': be, 'ts': ts,
+                'trades': r['trades'], 'wins': r['wins'],
+                'win_rate': r['win_rate'], 'pnl': r['pnl'],
+                'trailing_wins': r['trailing_wins'],
+                'by_reason': r.get('by_reason', {}),
+            })
+            if (idx + 1) % 12 == 0:
+                print(f"  {idx + 1}/{total}...", flush=True)
+
+        strategies_results.sort(key=lambda x: x['pnl'], reverse=True)
+        elapsed = time.time() - t0
+        print(f"  Сравнение за {elapsed:.0f}с")
+
+        print(f"\n  Топ-20 комбинаций:")
+        print(f"  {'#':>3}  {'Стратегия':<18}  {'Сторона':<12}  {'BE%':>4}  {'TS':>4}  "
+              f"{'Trades':>6}  {'WR%':>6}  {'PnL':>10}  {'Trail':>5}")
+        print("  " + "-" * 95)
+        for i, r in enumerate(strategies_results[:20]):
+            sname = r['strategy'][:16]
+            print(f"  {i + 1:>3}  {sname:<18}  {r['side']:<12}  {r['be']:>4.1f}  {r['ts']:>4}  "
+                  f"{r['trades']:>6}  {r['win_rate']:>5.1f}%  {r['pnl']:>+9.2f}$  "
+                  f"{r['trailing_wins']:>5}")
+
+        # Show worst too
+        print(f"\n  Худшие 5:")
+        for i, r in enumerate(strategies_results[-5:]):
+            sname = r['strategy'][:16]
+            print(f"  {len(strategies_results) - 4 + i:>3}  {sname:<18}  {r['side']:<12}  "
+                  f"{r['be']:>4.1f}  {r['ts']:>4}  {r['trades']:>6}  {r['win_rate']:>5.1f}%  "
+                  f"{r['pnl']:>+9.2f}$  {r['trailing_wins']:>5}")
+
+        result['compare'] = strategies_results[:20]
 
     # Grid search
     if args.grid:

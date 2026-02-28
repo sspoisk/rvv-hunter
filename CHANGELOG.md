@@ -593,3 +593,35 @@ if atr_percent > 0:
   ~ filters.btc_bearish_min_strength: 0.3 → 0.5
   ~ filters.btc_bullish_min_strength: 0.3 → 0.5
 ```
+
+## [2026-02-28 14:25] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_142500.json`
+- **Изменения:**
+```
+  ~ filters.btc_bearish_min_strength: 0.3 → 0.5
+  ~ filters.btc_bullish_min_strength: 0.3 → 0.5
+```
+
+## [2026-02-28 17:13] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260228_171350.json`
+- **Изменения:**
+```
+  + auto_backtest.auto_switch = False
+  + auto_backtest.compare_strategies = True
+  + auto_backtest.days = 7
+  + auto_backtest.enabled = True
+  + auto_backtest.interval_hours = 24
+  + auto_backtest.notify_telegram = True
+  + auto_backtest.pairs = 0
+  - entry_filters.min_rvol (удалён)
+  - entry_filters.rvol_enabled (удалён)
+  + strategy.lookback_candles = 3
+  + strategy.min_move_pct = 0.5
+  + strategy.min_rvol = 2.0
+  + strategy.side_filter = any
+  + strategy.type = vol_momentum
+```

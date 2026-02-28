@@ -587,47 +587,6 @@ PAPER TRADING
 </div>
 </div>
 </div>
-<!-- BACKTEST RESULTS -->
-<div class="card" style="margin-top:16px;">
-<div class="card-header">
-<span class="card-title">🧪 BACKTEST RESULTS</span>
-<div style="display:flex;gap:8px;align-items:center;">
-<span id="btRunning" style="display:none;font-size:0.7rem;color:var(--yellow);">⏳ Running...</span>
-<button class="btn btn-sm btn-primary" onclick="runBacktest()" id="btnRunBacktest">▶ Запустить</button>
-<button class="btn btn-sm btn-secondary" onclick="loadBacktest()">🔄</button>
-</div>
-</div>
-<div class="card-body" id="backtestResults"><div class="empty">Нет данных. Запустите бэктест.</div></div>
-</div>
-<!-- AUTO BACKTEST SETTINGS -->
-<div class="card" style="margin-top:16px;">
-<div class="card-header"><span class="card-title">⚙️ АВТОБЭКТЕСТ</span></div>
-<div class="card-body">
-<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;">
-<label class="form-check" style="margin:0;"><input type="checkbox" id="abEnabled" checked> Включён</label>
-<span style="font-size:0.65rem;color:var(--text3);">Автоматический запуск бэктеста</span>
-<span style="font-size:0.7rem;color:var(--text2);">Интервал</span>
-<div style="display:flex;align-items:center;gap:4px;">
-<input type="number" id="abInterval" min="1" max="168" step="1" value="24" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;text-align:center;">
-<span style="font-size:0.75rem;color:var(--text2);">часов</span>
-</div>
-<span style="font-size:0.7rem;color:var(--text2);">Период</span>
-<div style="display:flex;align-items:center;gap:4px;">
-<input type="number" id="abDays" min="1" max="30" step="1" value="7" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;text-align:center;">
-<span style="font-size:0.75rem;color:var(--text2);">дней</span>
-</div>
-<label class="form-check" style="margin:0;"><input type="checkbox" id="abCompare" checked> Сравнивать стратегии</label>
-<span style="font-size:0.65rem;color:var(--text3);">Тестировать все стратегии и показать лучшую</span>
-<label class="form-check" style="margin:0;"><input type="checkbox" id="abAutoSwitch"> Автопереключение</label>
-<span style="font-size:0.65rem;color:var(--text3);">Автоматически переключить на лучшую стратегию</span>
-<label class="form-check" style="margin:0;"><input type="checkbox" id="abTelegram" checked> Telegram</label>
-<span style="font-size:0.65rem;color:var(--text3);">Уведомлять о результатах</span>
-</div>
-<div style="margin-top:12px;">
-<button class="btn btn-primary btn-sm" onclick="saveStrategy()">💾 Сохранить</button>
-</div>
-</div>
-</div>
 </div>
 </div>
 <!-- FILTERS & PNL TAB (бывший POST-MORTEM) -->
@@ -771,57 +730,20 @@ PAPER TRADING
 </div>
 </div>
 
-<div class="form-section">🚀 СТРАТЕГИЯ v7.0</div>
-<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:16px;align-items:center;">
-
-<span style="font-size:0.7rem;color:var(--text2);">Тип стратегии</span>
-<select id="strategyType" style="padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;">
-<option value="vol_momentum">Vol Momentum (trend-follow)</option>
-<option value="scoring">Scoring (mean-reversion)</option>
-<option value="momentum">Momentum (RSI+MACD+EMA)</option>
-<option value="vol_reversal">Vol Reversal (spike+reversal)</option>
-<option value="rsi_only">RSI Only</option>
-<option value="bb_only">BB Only</option>
-</select>
-
-<span style="font-size:0.7rem;color:var(--text2);">Min RVOL</span>
-<div style="display:flex;align-items:center;gap:4px;" title="Минимальный RVOL для входа">
-<input type="number" id="stratMinRvol" min="1.0" max="10" step="0.1" value="2.0" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;text-align:center;">
-<span style="font-size:0.75rem;color:var(--text2);">x avg vol</span>
-</div>
-
-<span style="font-size:0.7rem;color:var(--text2);">Min Move %</span>
-<div style="display:flex;align-items:center;gap:4px;" title="Минимальное движение цены за lookback свечей">
-<input type="number" id="stratMinMovePct" min="0.1" max="5" step="0.1" value="0.5" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;text-align:center;">
-<span style="font-size:0.75rem;color:var(--text2);">%</span>
-</div>
-
-<span style="font-size:0.7rem;color:var(--text2);">Lookback</span>
-<div style="display:flex;align-items:center;gap:4px;" title="Сколько свечей назад смотреть для определения направления">
-<input type="number" id="stratLookback" min="1" max="10" step="1" value="3" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;text-align:center;">
-<span style="font-size:0.75rem;color:var(--text2);">свечей</span>
-</div>
-
-<span style="font-size:0.7rem;color:var(--text2);">Side Filter</span>
-<select id="stratSideFilter" style="padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;">
-<option value="any">Any (LONG + SHORT)</option>
-<option value="long_only">Long Only</option>
-<option value="short_only">Short Only</option>
-</select>
-
-</div>
-<div style="display:flex;gap:8px;margin-bottom:16px;">
-<button class="btn btn-primary btn-sm" onclick="saveStrategy()">💾 Сохранить стратегию</button>
-<button class="btn btn-secondary btn-sm" onclick="loadStrategy()">🔄 Загрузить</button>
-</div>
-
-<div class="form-section">🔒 ФИЛЬТРЫ ВХОДА</div>
+<div class="form-section">🔒 ФИЛЬТРЫ ВХОДА (v6.4)</div>
 <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-bottom:16px;align-items:center;">
 
 <label class="form-check" style="margin:0;"><input type="checkbox" id="parabolicEnabled" checked> Parabolic Filter</label>
 <div style="display:flex;align-items:center;gap:4px;" title="Пропускать вход если свеча > Nx средней (вход на пике)">
 <span style="font-size:0.7rem;color:var(--text2);">Свеча &gt;</span>
 <input type="number" id="parabolicMultiplier" min="1.5" max="10" step="0.5" value="3.0" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;text-align:center;">
+<span style="font-size:0.75rem;color:var(--text2);">x avg</span>
+</div>
+
+<label class="form-check" style="margin:0;"><input type="checkbox" id="rvolEnabled" checked> RVOL Filter</label>
+<div style="display:flex;align-items:center;gap:4px;" title="Вход только при объёме выше среднего (подтверждение движения)">
+<span style="font-size:0.7rem;color:var(--text2);">Мин. объём</span>
+<input type="number" id="minRvol" min="0.5" max="5" step="0.1" value="1.2" style="width:55px;padding:3px 5px;background:var(--bg4);border:1px solid var(--border);color:var(--yellow);font-size:0.8rem;border-radius:4px;text-align:center;">
 <span style="font-size:0.75rem;color:var(--text2);">x avg</span>
 </div>
 
@@ -834,8 +756,9 @@ PAPER TRADING
 
 </div>
 <div style="padding:8px;background:var(--bg4);border-radius:6px;font-size:0.65rem;color:var(--text3);margin-bottom:16px;">
-<strong>Parabolic</strong>: пропускает вход если свеча аномально большая (вход на пике).<br>
-<strong>Multi-TF</strong>: не входить LONG если 1h тренд DOWN. Фильтрует контртрендовые входы.
+<strong>Parabolic</strong>: пропускает вход если последняя свеча аномально большая (вход на пике пампа/дампа).<br>
+<strong>RVOL</strong>: вход только при объёме выше среднего — движение без объёма ненадёжное.<br>
+<strong>Multi-TF</strong>: не входить LONG если 1h тренд DOWN (и наоборот). Фильтрует контртрендовые входы.
 </div>
 
 <div class="form-section">⏰ КАЧЕСТВО ВХОДОВ</div>
@@ -1400,9 +1323,9 @@ document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('activ
 document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
 document.getElementById('tab-' + tab).classList.add('active');
 if (tab === 'positions') updatePositionsUI();
-else if (tab === 'analytics') { loadAnalytics(); loadBacktest(); }
+else if (tab === 'analytics') loadAnalytics();
 else if (tab === 'blacklist') loadBlacklist();
-else if (tab === 'postmortem') { loadPostMortems(); loadStrategy(); }
+else if (tab === 'postmortem') loadPostMortems();
 else if (tab === 'ai') loadAIStats();
 }
 function showAiSubTab(tab) {
@@ -3441,11 +3364,13 @@ document.getElementById('filterConfidence').value = f.min_confidence || 70;
 const recheckEl = document.getElementById('recheckChangeAtOpen');
 if (recheckEl) recheckEl.checked = f.recheck_change_at_open !== false;
 }
-// Entry filters
+// Entry filters (v6.4)
 if (data.entry_filters) {
 const ef = data.entry_filters;
 document.getElementById('parabolicEnabled').checked = ef.parabolic_enabled !== false;
 document.getElementById('parabolicMultiplier').value = ef.parabolic_multiplier ?? 3.0;
+document.getElementById('rvolEnabled').checked = ef.rvol_enabled !== false;
+document.getElementById('minRvol').value = ef.min_rvol ?? 1.2;
 document.getElementById('multiTfEnabled').checked = ef.multi_tf_enabled !== false;
 document.getElementById('multiTfEmaPeriod').value = ef.multi_tf_ema_period ?? 20;
 }
@@ -3503,10 +3428,12 @@ min_confidence: confidence,
 recheck_change_at_open: recheckChangeAtOpen
 };
 
-// Entry filters
+// Entry filters (v6.4)
 const entry_filters = {
 parabolic_enabled: document.getElementById('parabolicEnabled').checked,
 parabolic_multiplier: parseFloat(document.getElementById('parabolicMultiplier').value) || 3.0,
+rvol_enabled: document.getElementById('rvolEnabled').checked,
+min_rvol: parseFloat(document.getElementById('minRvol').value) || 1.2,
 multi_tf_enabled: document.getElementById('multiTfEnabled').checked,
 multi_tf_ema_period: parseInt(document.getElementById('multiTfEmaPeriod').value) || 20
 };
@@ -3603,147 +3530,6 @@ updateFiltersPreview();
 document.getElementById('btcBearishMinStr')?.addEventListener('input', e => {
 updateFiltersPreview();
 });
-
-// ============ STRATEGY & BACKTEST v7.0 ============
-async function loadStrategy() {
-try {
-const r = await fetch('/api/strategy');
-const data = await r.json();
-if (data.strategy) {
-const s = data.strategy;
-document.getElementById('strategyType').value = s.type || 'vol_momentum';
-document.getElementById('stratMinRvol').value = s.min_rvol ?? 2.0;
-document.getElementById('stratMinMovePct').value = s.min_move_pct ?? 0.5;
-document.getElementById('stratLookback').value = s.lookback_candles ?? 3;
-document.getElementById('stratSideFilter').value = s.side_filter || 'any';
-}
-if (data.auto_backtest) {
-const ab = data.auto_backtest;
-document.getElementById('abEnabled').checked = ab.enabled !== false;
-document.getElementById('abInterval').value = ab.interval_hours ?? 24;
-document.getElementById('abDays').value = ab.days ?? 7;
-document.getElementById('abCompare').checked = ab.compare_strategies !== false;
-document.getElementById('abAutoSwitch').checked = ab.auto_switch === true;
-document.getElementById('abTelegram').checked = ab.notify_telegram !== false;
-}
-} catch(e) { console.error('Load strategy error:', e); }
-}
-
-async function saveStrategy() {
-try {
-const strategy = {
-type: document.getElementById('strategyType').value,
-min_rvol: parseFloat(document.getElementById('stratMinRvol').value) || 2.0,
-min_move_pct: parseFloat(document.getElementById('stratMinMovePct').value) || 0.5,
-lookback_candles: parseInt(document.getElementById('stratLookback').value) || 3,
-side_filter: document.getElementById('stratSideFilter').value,
-};
-const auto_backtest = {
-enabled: document.getElementById('abEnabled').checked,
-interval_hours: parseInt(document.getElementById('abInterval').value) || 24,
-days: parseInt(document.getElementById('abDays').value) || 7,
-pairs: 0,
-notify_telegram: document.getElementById('abTelegram').checked,
-compare_strategies: document.getElementById('abCompare').checked,
-auto_switch: document.getElementById('abAutoSwitch').checked,
-};
-const r = await fetch('/api/strategy', {
-method: 'POST',
-headers: {'Content-Type': 'application/json'},
-body: JSON.stringify({strategy, auto_backtest})
-});
-const data = await r.json();
-if (data.success) toast('Стратегия', 'Сохранена!', 'success');
-else toast('Ошибка', data.error || 'Не удалось', 'error');
-} catch(e) { toast('Ошибка', e.message, 'error'); }
-}
-
-async function loadBacktest() {
-try {
-const r = await fetch('/api/analytics/backtest');
-const data = await r.json();
-const el = document.getElementById('backtestResults');
-const runEl = document.getElementById('btRunning');
-const btnEl = document.getElementById('btnRunBacktest');
-if (data.running) {
-runEl.style.display = '';
-btnEl.disabled = true;
-} else {
-runEl.style.display = 'none';
-btnEl.disabled = false;
-}
-if (!data.last_result) {
-el.innerHTML = '<div class="empty">Нет данных. Запустите бэктест.</div>';
-return;
-}
-const lr = data.last_result;
-const dt = new Date(lr.timestamp).toLocaleString();
-let html = `<div style="font-size:0.7rem;color:var(--text3);margin-bottom:8px;">📅 ${dt} | ${lr.days}д | ${lr.pairs} пар</div>`;
-html += `<div style="font-size:0.7rem;margin-bottom:4px;">Текущая: <b style="color:var(--yellow)">${lr.current_strategy}</b>`;
-if (lr.switched_to) html += ` → <b style="color:var(--green)">🔄 ${lr.switched_to}</b>`;
-html += `</div>`;
-if (lr.results) {
-html += '<table style="width:100%;font-size:0.7rem;"><thead><tr><th>Стратегия</th><th>PnL</th><th>WR</th><th>Trades</th><th></th></tr></thead><tbody>';
-const sorted = Object.entries(lr.results).sort((a,b) => (b[1].pnl||0) - (a[1].pnl||0));
-for (const [strat, r] of sorted) {
-const isBest = strat === lr.best_strategy;
-const isActive = strat === lr.current_strategy;
-const pnlColor = (r.pnl||0) >= 0 ? 'var(--green)' : 'var(--red)';
-const crown = isBest ? '👑' : '';
-const active = isActive ? '⚡' : '';
-html += `<tr>`;
-html += `<td>${crown}${active} ${strat}</td>`;
-html += `<td style="color:${pnlColor};font-weight:bold;">${(r.pnl||0) >= 0 ? '+' : ''}${(r.pnl||0).toFixed(2)}$</td>`;
-html += `<td>${(r.win_rate||0).toFixed(0)}%</td>`;
-html += `<td>${r.trades||0}</td>`;
-html += `<td>${!isActive ? `<button class="btn btn-sm btn-secondary" onclick="switchStrategy('${strat}')" style="padding:1px 6px;font-size:0.6rem;">Switch</button>` : ''}</td>`;
-html += `</tr>`;
-}
-html += '</tbody></table>';
-}
-el.innerHTML = html;
-} catch(e) {
-document.getElementById('backtestResults').innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`;
-}
-}
-
-async function runBacktest() {
-try {
-document.getElementById('btnRunBacktest').disabled = true;
-document.getElementById('btRunning').style.display = '';
-const r = await fetch('/api/analytics/backtest/run', {method: 'POST'});
-const data = await r.json();
-if (data.success) {
-toast('Backtest', 'Запущен! Ожидайте...', 'success');
-setTimeout(loadBacktest, 5000);
-const poll = setInterval(() => {
-fetch('/api/analytics/backtest').then(r => r.json()).then(d => {
-if (!d.running) { clearInterval(poll); loadBacktest(); }
-});
-}, 10000);
-} else {
-toast('Ошибка', data.error || 'Не удалось', 'error');
-document.getElementById('btnRunBacktest').disabled = false;
-document.getElementById('btRunning').style.display = 'none';
-}
-} catch(e) { toast('Ошибка', e.message, 'error'); }
-}
-
-async function switchStrategy(strat) {
-try {
-const r = await fetch('/api/strategy/switch', {
-method: 'POST',
-headers: {'Content-Type': 'application/json'},
-body: JSON.stringify({strategy: strat})
-});
-const data = await r.json();
-if (data.success) {
-toast('Стратегия', `Переключено: ${data.old} → ${data.new}`, 'success');
-loadStrategy();
-loadBacktest();
-} else toast('Ошибка', data.error, 'error');
-} catch(e) { toast('Ошибка', e.message, 'error'); }
-}
 
 // ГРАФИК PNL
 async function loadPnlChart() {
@@ -3882,7 +3668,6 @@ showTab = function(tab) {
 origShowTab(tab);
 if (tab === 'postmortem') {
 loadFilters();
-loadStrategy();
 loadPnlChart();
 }
 };
