@@ -456,3 +456,30 @@ if atr_percent > 0:
 ```
   ~ ai_provider: deepseek → mock
 ```
+
+## [2026-02-27 22:55] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260227_225529.json`
+- **Изменения:**
+```
+  ~ ai_provider: deepseek → mock
+```
+
+## [2026-02-27 23:36] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260227_233635.json`
+- **Изменения:**
+```
+  ~ trading.trailing_activation_pct: 0.5 → 1
+```
+
+## [2026-02-27 23:37] Backup config.json
+
+- **Причина:** auto: config.json changed
+- **Бэкап:** `backups/config_20260227_233738.json`
+- **Изменения:**
+```
+  ~ trading.trailing_activation_pct: 1 → 1.5
+```
