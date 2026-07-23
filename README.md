@@ -141,3 +141,12 @@ RVV_Hunter_v6.0/
 ---
 
 **⚠️ ДИСКЛЕЙМЕР**: Торговля криптовалютами связана с высоким риском. Используйте только те средства, которые готовы потерять. Автор не несёт ответственности за финансовые потери.
+
+
+---
+
+> ⚠️ **Archival experiment (2024–2025).** This is one of a series of personal crypto trading-bot experiments. Active trading has stopped; the code is released as-is for reference and learning. It may not run without adaptation (exchange API changes, missing dependencies, or configuration). **No warranty — never run it against a funded exchange account without a full review.**
+
+## License
+
+MIT — see [LICENSE](LICENSE).
